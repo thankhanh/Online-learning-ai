@@ -50,14 +50,14 @@ frontend/ # Giao diện người dùng (Next.js)
 backend/ # Server API (NestJS)
 docs/ # 
 ## 👨‍🎓 Thông tin đồ án
-- Sinh viên thực hiện: **Thanh Khánh Hà**
+- Sinh viên thực hiện: **Hà Thanh Khánh**  **Hà Văn Hưng**  **Lữ Thị Cẩm Tri**  **Nguyễn Mai Trinh** 
 - Trường: SGU
 - Năm học: 2025 – 2026
-- Loại đồ án: Đồ án học phần / Đồ án tốt nghiệp (có thể điều chỉnh)
+- Loại đồ án: Đồ án tốt nghiệp
 
 ## 🚀 Hướng phát triển
 - Nhận diện khuôn mặt khi thi
 - Phát hiện gian lận qua webcam
 - Thống kê & đánh giá học tập bằng AI
 - Triển khai CI/CD và Docker
-Tài liệu đồ án, sơ đồ hệ thống
+
