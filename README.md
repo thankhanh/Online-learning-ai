@@ -1,3 +1,5 @@
+# README.md
+
 ## Online Learning & Real-time Exam System with Local AI Tutor
 
 ### 1. Introduction
@@ -65,30 +67,6 @@ This project focuses on building an **All-in-one online learning platform** that
 * Frontend Engineer
 * AI Engineer
 * Leader / Database / Admin
-
----
-
-# docs/ROLE_BACKEND.md
-
-## Role: Backend Engineer
-
-### Responsibilities
-
-* Build REST APIs using ExpressJS
-* Handle authentication, authorization, and role management
-* Implement real-time communication with Socket.io
-* Manage exam logic, timing, and violation logging
-
-### Out of Scope
-
-* UI/UX implementation
-* AI model training or prompt design
-
-### Deliverables
-
-* API endpoints
-* Database models
-* Socket.io server logic
 
 ---
 
