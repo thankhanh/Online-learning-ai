@@ -1,63 +1,210 @@
-# Online Learning & Exam System with AI
+## Online Learning & Real-time Exam System with Local AI Tutor
 
-## 📌 Giới thiệu
-Đây là hệ thống học và thi trực tuyến dành cho sinh viên, tích hợp AI hỗ trợ giảng dạy và giám sát thi.
-Hệ thống giúp giảm tải cho giảng viên bằng cách cho phép sinh viên hỏi đáp với AI trong quá trình học,
-đồng thời hỗ trợ tổ chức kiểm tra và phát hiện hành vi gian lận.
+### 1. Introduction
 
-## 🎯 Mục tiêu
-- Hỗ trợ sinh viên học tập hiệu quả hơn thông qua AI
-- Giảm áp lực trả lời câu hỏi lặp lại cho giảng viên
-- Hỗ trợ giảng viên tổ chức thi và theo dõi hành vi gian lận
+This project focuses on building an **All-in-one online learning platform** that combines real-time virtual classrooms with a strict online examination system. The key highlight is the integration of a **self-hosted AI Tutor** using Retrieval-Augmented Generation (RAG), capable of understanding teaching materials instantly and assisting lecturers during live classes. The system is designed to run efficiently on limited hardware such as personal laptops or small servers.
 
-## 🔑 Chức năng chính
+### 2. Objectives
 
-### 1. AI hỗ trợ học tập
-- Chat AI trong lớp học (tương tự Google Meet chat)
-- Trả lời câu hỏi liên quan đến nội dung bài giảng
-- Gợi ý và giải thích kiến thức sinh viên chưa hiểu
-- Hoạt động song song với giảng viên (AI phụ trợ, không thay thế)
+* Build a real-time virtual classroom similar to Google Meet
+* Integrate a secure online exam system with basic anti-cheating mechanisms
+* Deploy a local AI Tutor that can read and answer questions from learning materials
+* Ensure full data privacy with no external AI APIs
 
-### 2. Hệ thống thi & kiểm tra
-- Giảng viên tạo bài kiểm tra / bài thi
-- Sinh viên làm bài thi trực tuyến
-- Ghi nhận hành vi đáng ngờ:
-  - Chuyển tab nhiều lần
-  - Thoát màn hình làm bài
-  - Không tương tác trong thời gian dài (idle)
-- Báo cáo hành vi cho giảng viên sau khi thi
+### 3. Technology Stack
 
-## 🛠 Công nghệ sử dụng
+* **Frontend**: ReactJS (Vite), Socket.io-client, Simple-Peer (WebRTC)
+* **Backend**: Node.js, ExpressJS
+* **Database**: MongoDB
+* **AI Engine**:
 
-### Frontend
-- Next.js
-- TypeScript
-- Tailwind CSS
+  * Runtime: Ollama (Local)
+  * Model: Qwen-2.5-1.5B
+  * Orchestration: LangChain.js
+* **Architecture**: Monolithic Modular
 
-### Backend
-- NestJS
-- REST API
-- JWT Authentication
+### 4. System Modules
 
-### Database
-- MongoDB (NoSQL)
+#### 4.1 Virtual Classroom
 
-### AI
-- OpenAI API (hoặc mô hình AI tương đương)
+* WebRTC P2P video conferencing (Mesh architecture)
+* Real-time chat using Socket.io
+* Hand raise and screen sharing
 
-## 📂 Cấu trúc thư mục
-frontend/ # Giao diện người dùng (Next.js)
-backend/ # Server API (NestJS)
-docs/ # 
-## 👨‍🎓 Thông tin đồ án
-- Sinh viên thực hiện: **Hà Thanh Khánh**  **Hà Văn Hưng**  **Lữ Thị Cẩm Tri**  **Nguyễn Mai Trinh** 
-- Trường: SGU
-- Năm học: 2025 – 2026
-- Loại đồ án: Đồ án tốt nghiệp
+#### 4.2 AI Tutor (Self-hosted RAG)
 
-## 🚀 Hướng phát triển
-- Nhận diện khuôn mặt khi thi
-- Phát hiện gian lận qua webcam
-- Thống kê & đánh giá học tập bằng AI
-- Triển khai CI/CD và Docker
+* Lecturer uploads PDF/Slide materials
+* AI processes and understands documents locally
+* Students ask questions and receive contextual answers
+* No data leaves the internal system
 
+#### 4.3 Online Exam & Monitoring
+
+* Multiple choice and essay exams
+* Server-side countdown timer
+* Detect tab switching, focus loss, copy/paste
+* Auto-submit when violations exceed limit
+
+### 5. AI Algorithm (RAG Pipeline)
+
+1. **Text Splitting**: Recursive Character Text Splitting
+2. **Embedding**: nomic-embed-text
+3. **Vector Search**: HNSW index
+4. **Similarity Matching**: Cosine Similarity
+5. **Answer Generation**: Transformer-based Qwen model
+
+### 6. Practical Significance
+
+* Zero cost for external AI APIs
+* Full data privacy for exams and teaching materials
+* Optimized performance with client-side video and local AI processing
+
+### 7. Team Roles
+
+* Backend Engineer
+* Frontend Engineer
+* AI Engineer
+* Leader / Database / Admin
+
+---
+
+# docs/ROLE_BACKEND.md
+
+## Role: Backend Engineer
+
+### Responsibilities
+
+* Build REST APIs using ExpressJS
+* Handle authentication, authorization, and role management
+* Implement real-time communication with Socket.io
+* Manage exam logic, timing, and violation logging
+
+### Out of Scope
+
+* UI/UX implementation
+* AI model training or prompt design
+
+### Deliverables
+
+* API endpoints
+* Database models
+* Socket.io server logic
+
+---
+
+# docs/ROLE_FRONTEND.md
+
+## Role: Frontend Engineer
+
+### Responsibilities
+
+* Build UI using ReactJS (Vite)
+* Implement WebRTC P2P video calling with Simple-Peer
+* Develop exam interface and real-time chat
+* Detect cheating behaviors via Browser APIs
+
+### Out of Scope
+
+* Backend business logic
+* AI processing or vector storage
+
+### Deliverables
+
+* React components and pages
+* WebRTC and Socket.io client integration
+
+---
+
+# docs/ROLE_AI.md
+
+## Role: AI Engineer
+
+### Responsibilities
+
+* Setup Ollama local runtime
+* Integrate Qwen-2.5-1.5B model
+* Build RAG pipeline using LangChain.js
+* Handle document parsing, embedding, and retrieval
+
+### Out of Scope
+
+* UI or frontend logic
+* Exam or user management logic
+
+### Deliverables
+
+* AI service APIs
+* RAG pipeline implementation
+* Prompt templates and configs
+
+---
+
+# docs/ROLE_LEADER.md
+
+## Role: Team Leader / DB / Admin
+
+### Responsibilities
+
+* Define system architecture and data flow
+* Design MongoDB schemas
+* Manage GitHub, branches, and pull requests
+* Assign tasks and track progress via Lark
+* Review code and ensure alignment with project scope
+
+### Out of Scope
+
+* Deep implementation of FE, BE, or AI modules
+
+### Deliverables
+
+* System documentation
+* Database schema design
+* Weekly task plans and reviews
+
+---
+
+# docs/WORKFLOW.md
+
+## Overall System Flow
+
+### Learning Flow
+
+Login → Join Class → WebRTC Video + Chat → AI Tutor Q&A
+
+### AI Flow
+
+Upload Material → Text Split → Embedding → Vector Store → Query → Answer
+
+### Exam Flow
+
+Start Exam → Timer Start → Monitor Violations → Submit → Save Result
+
+---
+
+# docs/ANTIGRAVITY_PROMPT_GUIDE.md
+
+## Base Prompt Template
+
+```
+You are a senior software engineer.
+
+Project:
+Online Learning & Real-time Exam System with Self-hosted AI Tutor.
+
+My role:
+<ROLE>
+
+Current task:
+<TASK>
+
+Rules:
+- Only focus on this task
+- Do not design the full system
+- Follow the README strictly
+```
+
+## Usage Rules
+
+* One role, one task, one prompt
+* No vague or large-scope prompts
+* Always reference README before prompting AI
