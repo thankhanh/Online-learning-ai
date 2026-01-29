@@ -1,3 +1,14 @@
+### Important note
+## From now on, everyone must follow these instructions:
+- README.md (project definition)
+- ROLE_xxx.md (work scope)
+- WORKFLOW.md (system flow understanding)
+- ANTIGRAVITY_PROMPT_GUIDE.md (AI prompt)
+# No one is allowed to work outside the scope without authorization
+
+
+
+
 # Base Prompt Template
 
 ```
