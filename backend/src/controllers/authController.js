@@ -21,12 +21,29 @@ exports.register = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role: role || 'student'
+            role: role || 'student',
+            displayName: name // Default displayName to name
         });
 
         await user.save();
 
-        res.status(201).json({ message: 'User registered successfully' });
+        // Create JWT payload
+        const payload = {
+            user: {
+                id: user.id,
+                role: user.role
+            }
+        };
+
+        jwt.sign(
+            payload,
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: '24h' },
+            (err, token) => {
+                if (err) throw err;
+                res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, displayName: user.displayName, avatar: user.avatar } });
+            }
+        );
     } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
@@ -68,12 +85,47 @@ exports.login = async (req, res) => {
                         id: user.id,
                         name: user.name,
                         email: user.email,
-                        role: user.role
+                        role: user.role,
+                        displayName: user.displayName || user.name,
+                        avatar: user.avatar
                     }
                 });
             }
         );
     } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+
+exports.updateProfile = async (req, res) => {
+    try {
+        const { displayName, avatar } = req.body;
+        const userFields = {};
+        if (displayName) userFields.displayName = displayName;
+        if (avatar) userFields.avatar = avatar;
+
+        let user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: userFields },
+            { new: true }
+        ).select('-password');
+
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 };

@@ -22,16 +22,14 @@
 | **🦁 Leader** | - Thiết lập Git rule, branch protection.<br>- Viết Document Onboarding chi tiết.<br>- Setup CI/CD cơ bản (Linting). | [x] |
 | **🎨 Frontend** | - Cài đặt Tailwind/UI Library.<br>- Dựng Layout chính (Dashboard, Navbar, Sidebar).<br>- Tạo trang Landing Page & 404. | [x] |
 | **🔌 Backend** | - Setup Express, Error Handling Middleware.<br>- Kết nối DB (Local & Atlas).<br>- Config Logging (Morgan, Winston). | [x] |
-| **🤖 AI** | - Nghiên cứu Ollama & LangChain.<br>- Viết POC (Proof of Concept) script test kết nối Ollama local. | [x] |
+| **🤖 AI** | - Nghiên cứu Ollama & LangChain.<br>- Viết POC (Proof of Concept) script test kết nối Ollama local. | [] |
 
 #### 📅 Tuần 2 (06/02 - 12/02): Authentication & User Management
 *Mục tiêu: Đăng ký, Đăng nhập hoàn chỉnh, Lưu profile user.*
 
-| Vai Trò | Nhiệm Vụ Cụ Thể | Trạng Thái |
-| :--- | :--- | :--- |
-| **🦁 Leader** | - Review PR Tuần 1.<br>- Merge code vào `dev`.<br>- Dựng cấu trúc Folder chuẩn cho Controller/Service. | [ ] |
-| **🎨 Frontend** | - Form Login/Register/Forgot Password.<br>- Xử lý JWT lưu vào LocalStorage/Cookie.<br>- Trang User Profile (View/Edit). | [ ] |
-| **🔌 Backend** | - API Auth: Register, Login, Refresh Token.<br>- Middleware: `verifyToken`, `authorizeRole`.<br>- API User CRUD. | [ ] |
+| **🦁 Leader** | - Review PR Tuần 1.<br>- Merge code vào `dev`.<br>- Dựng cấu trúc Folder chuẩn cho Controller/Service. | [x] |
+| **🎨 Frontend** | - Form Login/Register/Forgot Password.<br>- Xử lý JWT lưu vào LocalStorage/Cookie.<br>- Trang User Profile (View/Edit). | [x] |
+| **🔌 Backend** | - API Auth: Register, Login, Refresh Token.<br>- Middleware: `verifyToken`, `authorizeRole`.<br>- API User CRUD. | [x] |
 | **🤖 AI** | - Dựng vector database (ChromaDB/Faiss) local.<br>- Model Schema cho Vector Store. | [ ] |
 
 ---

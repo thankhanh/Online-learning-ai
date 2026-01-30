@@ -1,30 +1,223 @@
-.App {
-  text-align: center;
-  background-color: #282c34;
-  min-height: 100 vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+/* Global Reset & Base */
+:root {
+    --primary-color: #2563EB;
+    --secondary-color: #7C3AED;
+    --bg-dark: #0F172A;
+    --bg-card: #1E293B;
+    --text-main: #E2E8F0;
+    --text-muted: #94A3B8;
+    --border-color: #334155;
 }
 
-.status-card {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  margin-top: 2rem;
-  text-align: left;
+body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    min-height: 100vh;
 }
 
-.status-card p {
-  margin: 0.5rem 0;
+a {
+    text-decoration: none;
+    color: inherit;
+    transition: opacity 0.2s;
 }
 
-strong {
-  color: #61dafb;
+a:hover {
+    opacity: 0.8;
+}
+
+/* Layout Grid */
+.main-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.layout-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.layout-content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* Navbar */
+.navbar {
+    height: 60px;
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.25rem;
+    color: var(--primary-color);
+}
+
+.navbar-links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: #EF4444;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    background-color: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    padding: 1rem 0;
+    display: none;
+    /* Mobile first hidden, block on desktop */
+}
+
+@media (min-width: 768px) {
+    .sidebar {
+        display: block;
+    }
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li a {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-muted);
+}
+
+.sidebar-menu li a:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+}
+
+/* Landing Page */
+.landing-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.landing-header {
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-weight: 800;
+    font-size: 1.5rem;
+    background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.hero-section {
+    text-align: center;
+    padding: 5rem 1rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.hero-section h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.hero-section p {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    max-width: 600px;
+    margin-bottom: 2rem;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+}
+
+.features-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    padding: 4rem 2rem;
+    background-color: var(--bg-card);
+}
+
+.feature-card {
+    padding: 1.5rem;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.landing-footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.btn-xl {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+}
+
+/* Utility */
+.login-container,
+.dashboard-content {
+    /* Reuse existing containers but style better */
+    margin: 0 auto;
 }

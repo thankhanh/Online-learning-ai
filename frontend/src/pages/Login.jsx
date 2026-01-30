@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 const Login = ({ onLoginSuccess }) => {
@@ -49,6 +50,27 @@ const Login = ({ onLoginSuccess }) => {
                     />
                 </div>
                 <button type="submit">Login</button>
+                <p style={{ marginTop: '1rem' }}>
+                    Don't have an account? <Link to="/register" style={{ color: '#61dafb' }}>Register here</Link>
+                </p>
+
+                <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                    <p style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem' }}>For UI Testing only:</p>
+                    <button
+                        type="button"
+                        onClick={() => onLoginSuccess({ name: 'Demo User', email: 'demo@test.com', role: 'student' })}
+                        style={{ backgroundColor: '#2a2a2a', border: '1px solid #555' }}
+                    >
+                        👀 View Demo (No Auth)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onLoginSuccess({ name: 'Demo User', email: 'demo@test.com', role: 'lecturer' })}
+                        style={{ backgroundColor: '#2a2a2a', border: '1px solid #555', marginTop: '0.5rem' }}
+                    >
+                        👀 View Demo (Lecturer)
+                    </button>
+                </div>
             </form>
         </div>
     );
