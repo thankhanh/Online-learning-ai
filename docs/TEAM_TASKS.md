@@ -11,9 +11,9 @@
     *   `main`: Phiên bản sản phẩm (Stable). Chỉ Leader được merge vào.
     *   `dev`: Nhánh phát triển chung. Nơi Leader tổng hợp code.
 2.  **Nhánh Thành Viên (Feature Branches)**:
-    *   Frontend: `feature/frontend`
-    *   Backend: `feature/backend`
-    *   AI: `feature/ai`
+    *   Frontend: `feature/FE`
+    *   Backend: `feature/BE`
+    *   AI: `feature/AI`
 3.  **Quy Trình**:
     *   B1: `git checkout feature/xxx`
     *   B2: `git pull origin dev` (Lấy code mới nhất)
