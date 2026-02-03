@@ -38,9 +38,9 @@ const Login = ({ onLoginSuccess }) => {
             <Card className="w-full max-w-md z-10 mx-4">
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-primary-light to-secondary-light bg-clip-text text-transparent">
-                        Welcome Back
+                        Chào mừng trở lại
                     </h2>
-                    <p className="text-slate-400 mt-2">Sign in to your AI Learning Hub</p>
+                    <p className="text-slate-400 mt-2">Đăng nhập vào hệ thống học tập AI của bạn</p>
                 </div>
 
                 {error && (
@@ -57,7 +57,7 @@ const Login = ({ onLoginSuccess }) => {
                     <div>
                         <Input
                             type="email"
-                            placeholder="Email Address"
+                            placeholder="Địa chỉ Email"
                             name="email"
                             value={email}
                             onChange={onChange}
@@ -67,7 +67,7 @@ const Login = ({ onLoginSuccess }) => {
                     <div>
                         <Input
                             type="password"
-                            placeholder="Password"
+                            placeholder="Mật khẩu"
                             name="password"
                             value={password}
                             onChange={onChange}
@@ -75,19 +75,19 @@ const Login = ({ onLoginSuccess }) => {
                         />
                     </div>
                     <Button type="submit" variant="primary" className="w-full py-3 text-lg shadow-lg shadow-primary/20">
-                        Login
+                        Đăng nhập
                     </Button>
                 </form>
 
                 <div className="mt-8 pt-6 border-t border-white/10">
-                    <p className="text-sm text-center text-slate-500 mb-4">For UI Verification Only:</p>
+                    <p className="text-sm text-center text-slate-500 mb-4">Dành cho kiểm thử giao diện:</p>
                     <Button
                         type="button"
                         variant="ghost"
                         className="w-full border border-white/10 hover:bg-white/5"
                         onClick={() => onLoginSuccess({ name: 'Demo User', email: 'demo@test.com', role: 'student' })}
                     >
-                        👀 View Demo (No Auth)
+                        👀 Xem Demo (Không cần đăng nhập)
                     </Button>
                 </div>
             </Card>

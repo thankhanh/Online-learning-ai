@@ -11,11 +11,11 @@ const StudentDashboard = ({ user }) => {
             {/* Welcome Section */}
             <section className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">My Learning Space</h1>
-                    <p className="text-slate-400">Track your progress and upcoming exams.</p>
+                    <h1 className="text-3xl font-bold text-white">Góc học tập của tôi</h1>
+                    <p className="text-slate-400">Theo dõi tiến độ và các bài kiểm tra sắp tới.</p>
                 </div>
                 <div className="glass-panel px-4 py-2 rounded-full text-sm text-primary-light border-primary/20">
-                    Semester 1, 2026
+                    Học kỳ 1, 2026
                 </div>
             </section>
 
@@ -27,7 +27,7 @@ const StudentDashboard = ({ user }) => {
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-white">4</h3>
-                        <p className="text-slate-400 text-sm">Active Courses</p>
+                        <p className="text-slate-400 text-sm">Khóa học đang học</p>
                     </div>
                 </Card>
             </section>
@@ -38,22 +38,22 @@ const StudentDashboard = ({ user }) => {
                 {/* Active Classes */}
                 <section>
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-                        <PlayCircle className="mr-2 text-secondary" /> Active Classes
+                        <PlayCircle className="mr-2 text-secondary" /> Lớp học đang diễn ra
                     </h2>
                     <div className="space-y-4">
                         <Card>
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="text-lg font-bold text-white">Introduction to AI</h3>
-                                    <p className="text-primary-light text-sm">Dr. Alan Turing</p>
+                                    <h3 className="text-lg font-bold text-white">Giới thiệu về AI</h3>
+                                    <p className="text-primary-light text-sm">TS. Alan Turing</p>
                                 </div>
                                 <span className="px-2 py-1 text-xs rounded bg-green-500/20 text-green-400 border border-green-500/30">
-                                    Live Now
+                                    Đang trực tuyến
                                 </span>
                             </div>
-                            <p className="text-slate-400 text-sm mb-4">Topic: Neural Networks & Deep Learning Basics</p>
+                            <p className="text-slate-400 text-sm mb-4">Chủ đề: Mạng nơ-ron & Cơ bản về Deep Learning</p>
                             <Link to="/classroom/101">
-                                <Button variant="primary" className="w-full">Join Live Class</Button>
+                                <Button variant="primary" className="w-full">Vào lớp ngay</Button>
                             </Link>
                         </Card>
                     </div>
@@ -62,21 +62,21 @@ const StudentDashboard = ({ user }) => {
                 {/* Upcoming Exams */}
                 <section>
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-                        <Clock className="mr-2 text-alert" /> Upcoming Exams
+                        <Clock className="mr-2 text-alert" /> Bài kiểm tra sắp tới
                     </h2>
                     <div className="space-y-4">
                         <Card className="border-alert/20 hover:border-alert/50">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="text-lg font-bold text-white">Mid-term: Intro to AI</h3>
-                                    <p className="text-slate-400 text-sm">Duration: 15 mins</p>
+                                    <h3 className="text-lg font-bold text-white">Giữa kỳ: Giới thiệu về AI</h3>
+                                    <p className="text-slate-400 text-sm">Thời lượng: 15 phút</p>
                                 </div>
                                 <span className="px-2 py-1 text-xs rounded bg-alert/20 text-alert-light border border-alert/30">
-                                    Starts in 10m
+                                    Bắt đầu trong 10p
                                 </span>
                             </div>
                             <Link to="/exam/101">
-                                <Button variant="alert" className="w-full">Enter Exam Room</Button>
+                                <Button variant="alert" className="w-full">Vào phòng thi</Button>
                             </Link>
                         </Card>
                     </div>
