@@ -73,6 +73,15 @@ erDiagram
         Date timestamp
     }
 
+    Message {
+        ObjectId _id PK
+        ObjectId classroom FK "Ref: Classroom"
+        ObjectId sender FK "Ref: User"
+        String content
+        String type "text | image | system"
+        Date createdAt
+    }
+
     %% Relationships
     User ||--o{ Classroom : "lecturer creates"
     User ||--o{ Classroom : "students join"
@@ -84,5 +93,7 @@ erDiagram
     Exam ||--o{ Result : "generates"
     Result ||--|{ Answer : "contains"
     Result ||--o{ Violation : "has"
+    Classroom ||--o{ Message : "has history"
+    User ||--o{ Message : "sends"
 
 ```
