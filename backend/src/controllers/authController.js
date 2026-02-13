@@ -1,10 +1,22 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { isValidEmail, isValidPassword, isRequired } = require('../utils/validation');
 
 exports.register = async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
+
+        // Validation
+        if (!isRequired(name)) {
+            return res.status(400).json({ message: 'Name is required' });
+        }
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+        if (!isValidPassword(password)) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        }
 
         // Check if user exists
         let user = await User.findOne({ email });
@@ -52,6 +64,14 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        // Validation
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+        if (!isRequired(password)) {
+            return res.status(400).json({ message: 'Password is required' });
+        }
 
         // Check user
         const user = await User.findOne({ email });
