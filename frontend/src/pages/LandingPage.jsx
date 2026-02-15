@@ -17,8 +17,8 @@ const LandingPage = () => {
                 <h1>Unlock Your Potential with AI</h1>
                 <p>Experience the future of education with our Real-time Virtual Classroom and local AI Tutor.</p>
                 <div className="cta-buttons">
-                    <Link to="/register" className="btn btn-xl btn-primary">Join Now</Link>
-                    <a href="#features" className="btn btn-xl btn-ghost">Learn More</a>
+                    <Link to="/register" className="btn btn-lg btn-primary">Join Now</Link>
+                    <a href="#features" className="btn btn-lg btn-outline-light">Learn More</a>
                 </div>
             </section>
 

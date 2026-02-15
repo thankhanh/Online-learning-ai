@@ -11,6 +11,17 @@ import MainLayout from './components/layout/MainLayout'
 import ChatBox from './components/ChatBox'
 import ExamViewer from './components/ExamViewer'
 import './App.css'
+import ExamManagement from './features/lecturer/ExamManagement'
+
+import DocumentManagement from './features/lecturer/DocumentManagement'
+import ClassroomManagement from './features/lecturer/ClassroomManagement'
+import Notification from './features/Notification/Notification'
+import VirtualClassroom from './features/student/VirtualClassroom'
+import LearningCenter from './features/student/LearningCenter'
+import ExamRoom from './features/student/ExamRoom'
+import ExamList from './features/student/ExamList'
+import UserManagement from './features/admin/UserManagement'
+import CategoryManagement from './features/admin/CategoryManagement'
 
 const socket = io('http://localhost:5000')
 
@@ -96,6 +107,45 @@ function App() {
 
         <Route path="/exam/:id" element={user ? <ExamViewer /> : <Navigate to="/login" />} />
 
+        <Route path="/classroom-management" element={user ?
+          <MainLayout user={user} onLogout={onLogout}>
+            <ClassroomManagement user={user} />
+          </MainLayout>
+          : <Navigate to="/login" />} />
+        <Route path="/exam-management" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <ExamManagement user={user} />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        <Route path="/document-management" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <DocumentManagement user={user} />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        <Route path="/notifications" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <Notification user={user} />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin/users" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <UserManagement />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        <Route path="/admin/categories" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <CategoryManagement />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        {/* Student Routes */}
+        <Route path="/virtual-classroom/:id" element={user ? <VirtualClassroom /> : <Navigate to="/login" />} />
+        <Route path="/learning-center" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <LearningCenter />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        <Route path="/exams" element={user ? <MainLayout user={user} onLogout={onLogout}>
+          <ExamList />
+        </MainLayout> : <Navigate to="/login" />} />
+
+        <Route path="/exam-room/:id" element={user ? <ExamRoom /> : <Navigate to="/login" />} />
+
+        {/* Catch-all Route - Must be last */}
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
       </Routes>
     </div>
