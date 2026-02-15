@@ -1,15 +1,15 @@
-# TÊN ĐỀ TÀI: XÂY DỰNG HỆ THỐNG LỚP HỌC ẢO VÀ THI TRỰC TUYẾN THỜI GIAN THỰC TÍCH HỢP TRỢ LÝ AI SỬ DỤNG KỸ THUẬT RAG
-
-## 1. Giới thiệu & Tính cấp thiết (Introduction)
-
-Trong bối cảnh giáo dục số hóa, các hệ thống LMS truyền thống thiếu tính tương tác thời gian thực, trong khi các ứng dụng họp trực tuyến (như Google Meet) lại thiếu các công cụ quản lý thi cử và hỗ trợ học tập chuyên sâu.
-
-Đề tài tập trung xây dựng một nền tảng **"All-in-one"**: Vừa là nơi giảng dạy trực tuyến qua video, vừa tích hợp **Trợ lý ảo AI (AI Tutor)** có khả năng tự động học tài liệu của giảng viên để giải đáp thắc mắc cho sinh viên ngay trong giờ học, giúp giảm tải áp lực cho giảng viên và cá nhân hóa trải nghiệm người học.
-
-## 2. Giải pháp công nghệ (Technology Stack)
-
-Hệ thống được thiết kế theo tiêu chí **"Lightweight & Privacy-First"** (Nhẹ & Bảo mật), tối ưu cho máy chủ cấu hình thấp (Laptop cá nhân) và đảm bảo an toàn dữ liệu nội bộ.
-
+TÊN ĐỀ TÀI: XÂY DỰNG HỆ THỐNG LỚP HỌC ẢO VÀ THI TRỰC TUYẾN THỜI GIAN THỰC TÍCH HỢP TRỢ LÝ AI SỬ DỤNG KỸ THUẬT RAG
+ 
+1. Giới thiệu & Tính cấp thiết (Introduction)
+ 
+　　　Trong bối cảnh giáo dục số hóa, các hệ thống LMS truyền thống thiếu tính tương tác thời gian thực, trong khi các ứng dụng họp trực tuyến (như Google Meet) lại thiếu các công cụ quản lý thi cử và hỗ trợ học tập chuyên sâu.
+ 
+　　　Đề tài tập trung xây dựng một nền tảng **"All-in-one"**: Vừa là nơi giảng dạy trực tuyến qua video, vừa tích hợp **Trợ lý ảo AI (AI Tutor)** có khả năng tự động học tài liệu của giảng viên để giải đáp thắc mắc cho sinh viên ngay trong giờ học, giúp giảm tải áp lực cho giảng viên và cá nhân hóa trải nghiệm người học.
+ 
+2. Giải pháp công nghệ (Technology Stack)
+ 
+　　　Hệ thống được thiết kế theo tiêu chí **"Lightweight & Privacy-First"** (Nhẹ & Bảo mật), tối ưu cho máy chủ cấu hình thấp (Laptop cá nhân) và đảm bảo an toàn dữ liệu nội bộ.
+ 
 * **Mô hình phát triển:** 100% JavaScript (Full-stack JS).
 * **Frontend:** **ReactJS** (Vite), **Socket.io-client** (Giao tiếp thời gian thực), **Simple-Peer** (WebRTC).
 * **Backend:** **Node.js**, **ExpressJS**.
@@ -18,46 +18,47 @@ Hệ thống được thiết kế theo tiêu chí **"Lightweight & Privacy-Firs
 * **Runtime:** **Ollama** (Chạy model AI Offline/Local).
 * **Model:** **Qwen-2.5-1.5B** (Mô hình ngôn ngữ nhỏ, tối ưu RAM < 4GB, hỗ trợ tiếng Việt tốt).
 * **Framework:** **LangChain.js** (Xử lý logic RAG).
-
-
-
-## 3. Các chức năng cốt lõi (Core Modules)
-
-### A. Phân hệ Lớp học ảo (Real-time Classroom)
-
+ 
+ 
+ 
+3. Các chức năng cốt lõi (Core Modules)
+ 
+A. Phân hệ Lớp học ảo (Real-time Classroom)
+ 
 * **Video Conference:** Hỗ trợ gọi video đa điểm, chia sẻ màn hình, bật/tắt Mic & Cam.
 * **Công nghệ:** Sử dụng kiến trúc **WebRTC Mesh (Peer-to-Peer)**. Dữ liệu video truyền trực tiếp giữa các máy sinh viên, không đi qua Server, giúp giảm tải băng thông và server không bị quá tải xử lý media.
-
-### B. Phân hệ Trợ giảng thông minh (AI Tutor - RAG)
-
-* **Quy trình:** Giảng viên upload tài liệu (PDF, Docx) vào phòng  Hệ thống tự động vector hóa và "học" nội dung.
-* **Tương tác:** Sinh viên đặt câu hỏi trong khung chat chung  AI phân tích ngữ cảnh tài liệu  Trả lời câu hỏi thay giảng viên ngay lập tức.
+ 
+B. Phân hệ Trợ giảng thông minh (AI Tutor - RAG)
+ 
+* **Quy trình:** Giảng viên upload tài liệu (PDF, Docx) vào phòng  Hệ thống tự động vector hóa và "học" nội dung.
+* **Tương tác:** Sinh viên đặt câu hỏi trong khung chat chung  AI phân tích ngữ cảnh tài liệu  Trả lời câu hỏi thay giảng viên ngay lập tức.
 * **Ưu điểm:** Dữ liệu bài giảng nằm yên trên server trường, không gửi ra API bên ngoài (như OpenAI), bảo mật tuyệt đối.
-
-### C. Phân hệ Thi & Giám sát (Online Exam & Integrity)
-
+ 
+C. Phân hệ Thi & Giám sát (Online Exam & Integrity)
+ 
 * **Tổ chức thi:** Hỗ trợ đề trắc nghiệm, tự luận, đồng hồ đếm ngược server-side.
 * **Chống gian lận (Browser-based Security):** Thay vì dùng AI xử lý ảnh nặng nề, hệ thống sử dụng **Browser APIs** để phát hiện hành vi:
 * Phát hiện chuyển Tab (Tab Switching) bằng `Visibility API`.
 * Phát hiện mất tiêu điểm màn hình (Focus Loss) bằng sự kiện `Blur`.
 * Chặn các thao tác Copy/Paste/Chuột phải.
 * Tự động cảnh báo và thu bài nếu vi phạm quá giới hạn.
-
-
-
-## 4. Cơ sở thuật toán (Algorithmic Core)
-
+ 
+ 
+ 
+4. Cơ sở thuật toán (Algorithmic Core)
+ 
 Dự án áp dụng kỹ thuật **RAG (Retrieval-Augmented Generation)** với các thuật toán cụ thể:
+ 
 
-| Giai đoạn | Thuật toán / Kỹ thuật | Mục đích |
-| --- | --- | --- |
-| **1. Xử lý đầu vào** | **Recursive Character Text Splitting** | Cắt nhỏ tài liệu thành các đoạn (chunks) dựa trên cấu trúc ngữ pháp, giữ nguyên ngữ cảnh. |
-| **2. Truy xuất** | **HNSW** (Hierarchical Navigable Small World) | Cấu trúc dữ liệu đồ thị giúp tìm kiếm vector tốc độ cao trong không gian dữ liệu lớn. |
-| **3. So khớp** | **Cosine Similarity** (Độ tương đồng Cosine) | Tính toán góc giữa Vector câu hỏi và Vector tài liệu để tìm ra đoạn văn bản liên quan nhất (). |
-| **4. Sinh ngữ** | **Transformer Decoder** (Self-Attention) | Kiến trúc của Model Qwen giúp tổng hợp thông tin và sinh văn bản tiếng Việt tự nhiên. |
-
-## 5. Kết luận & Hướng phát triển
-
+Giai đoạn	Thuật toán / Kỹ thuật	Mục đích
+1. Xử lý đầu vào	Recursive Character Text Splitting	Cắt nhỏ tài liệu thành các đoạn (chunks) dựa trên cấu trúc ngữ pháp, giữ nguyên ngữ cảnh.
+2. Truy xuất	HNSW (Hierarchical Navigable Small World)	Cấu trúc dữ liệu đồ thị giúp tìm kiếm vector tốc độ cao trong không gian dữ liệu lớn.
+3. So khớp	Cosine Similarity (Độ tương đồng Cosine)	Tính toán góc giữa Vector câu hỏi và Vector tài liệu để tìm ra đoạn văn bản liên quan nhất.
+4. Sinh ngữ	Transformer Decoder (Self-Attention)	Kiến trúc của Model Qwen giúp tổng hợp thông tin và sinh văn bản tiếng Việt tự nhiên.
+ 
+5. Kết luận & Hướng phát triển
+ 
 * **Tính mới:** Kết hợp thành công mô hình ngôn ngữ lớn chạy cục bộ (Local LLM) vào hệ thống đào tạo trực tuyến thời gian thực.
 * **Hiệu quả:** Giải quyết bài toán chi phí (không tốn tiền API) và bài toán phần cứng (chạy tốt trên máy cấu hình trung bình).
 * **Khả năng mở rộng:** Có thể nâng cấp model AI lớn hơn khi hạ tầng phần cứng cho phép hoặc tích hợp AI giám sát qua Computer Vision trong tương lai.
+
