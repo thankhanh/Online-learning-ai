@@ -31,29 +31,32 @@ const ChatBox = () => {
     };
 
     return (
-        <div className="chat-box">
-            <div className="chat-header">
-                <h3>AI Tutor Chat</h3>
+        <div className="card h-100 shadow-sm">
+            <div className="card-header bg-primary text-white">
+                <h5 className="mb-0">AI Tutor Chat</h5>
             </div>
-            <div className="chat-messages">
+            <div className="card-body overflow-auto" style={{ height: '400px' }}>
                 {messages.map((msg) => (
-                    <div key={msg.id} className={`message ${msg.sender}`}>
-                        <div className="message-bubble">
+                    <div key={msg.id} className={`d-flex mb-3 ${msg.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
+                        <div className={`p-3 rounded-3 ${msg.sender === 'user' ? 'bg-primary text-white' : 'bg-light text-dark'}`} style={{ maxWidth: '75%' }}>
                             {msg.text}
                         </div>
                     </div>
                 ))}
                 <div ref={messagesEndRef} />
             </div>
-            <form className="chat-input-form" onSubmit={handleSendMessage}>
-                <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Ask a question..."
-                />
-                <button type="submit">Send</button>
-            </form>
+            <div className="card-footer">
+                <form className="d-flex gap-2" onSubmit={handleSendMessage}>
+                    <input
+                        type="text"
+                        className="form-control"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        placeholder="Ask a question..."
+                    />
+                    <button type="submit" className="btn btn-primary">Send</button>
+                </form>
+            </div>
         </div>
     );
 };

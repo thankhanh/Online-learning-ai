@@ -11,7 +11,12 @@
   },
   "dependencies": {
     "axios": "^1.13.4",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "framer-motion": "^12.30.0",
+    "lucide-react": "^0.563.0",
     "react": "^19.2.0",
+    "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
     "simple-peer": "^9.11.1",
