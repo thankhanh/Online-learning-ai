@@ -4,8 +4,8 @@
 // 3. Vectorize
 // 4. Store
 
-const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
-const { MemoryVectorStore } = require('langchain/vectorstores/memory');
+const { RecursiveCharacterTextSplitter } = require('@langchain/classic/text_splitter');
+const { MemoryVectorStore } = require('@langchain/classic/vectorstores/memory');
 const { OllamaEmbeddings } = require('@langchain/ollama');
 const pdf = require('pdf-parse');
 
@@ -18,11 +18,21 @@ class RagPipeline {
         this.vectorStore = null;
     }
 
-    async ingestDocument(fileBuffer) {
+    async ingestDocument(fileBuffer, isPdf = true) {
         try {
-            console.log("Starting document ingestion...");
-            const data = await pdf(fileBuffer);
-            const text = data.text;
+            console.log(`Starting document ingestion (isPdf: ${isPdf})...`);
+            let text = "";
+
+            if (isPdf) {
+                const data = await pdf(fileBuffer);
+                text = data.text;
+            } else {
+                text = fileBuffer.toString('utf-8');
+            }
+
+            if (!text || text.trim().length === 0) {
+                throw new Error("No text content found in document.");
+            }
 
             const textSplitter = new RecursiveCharacterTextSplitter({
                 chunkSize: 1000,

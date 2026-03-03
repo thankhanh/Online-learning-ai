@@ -1,66 +1,39 @@
-# 📖 Hướng Dẫn Cài Đặt & Chạy AI Local
+# � Hướng Dẫn Cài Đặt AI (Siêu Tốc)
 
-Tài liệu này hướng dẫn các thành viên trong nhóm cách thiết lập môi trường để chạy các tính năng AI (RAG Pipeline, Hỏi đáp tài liệu) trên máy cá nhân.
+Dành cho các thành viên muốn chạy và code AI trên máy mới.
 
-## 1. Yêu cầu hệ thống
-- **Node.js**: v18 trở lên.
-- **RAM**: Tối thiểu 8GB (Khuyến nghị 16GB để chạy AI mượt mà).
-- **GPU**: Không bắt buộc nhưng sẽ giúp AI trả lời nhanh hơn.
+## 1. Cài đặt AI Engine (Chỉ làm 1 lần)
+1. Tải và cài đặt **Ollama** tại [ollama.com](https://ollama.com/).
+2. Mở Terminal và tải 2 model sau:
+   ```bash
+   ollama pull qwen2.5:1.5b
+   ollama pull nomic-embed-text
+   ```
 
-## 2. Cài đặt Ollama (AI Engine)
-Ollama là công cụ dùng để chạy các mô hình ngôn ngữ lớn (LLM) ngay trên máy cục bộ.
+## 2. Cài đặt Project (Chỉ làm 1 lần)
+1. Di chuyển vào thư mục `backend/`.
+2. Chạy lệnh cài đặt thư viện:
+   ```bash
+   npm install
+   ```
+3. Đảm bảo file `.env` đã có: `OLLAMA_URL=http://localhost:11434`
 
-1.  Truy cập [ollama.com](https://ollama.com/) và tải về phiên bản phù hợp với OS của bạn.
-2.  Cài đặt và khởi chạy Ollama.
-3.  Mở Terminal (CMD hoặc PowerShell) và tải các model cần thiết bằng lệnh:
-    ```bash
-    # Tải model ngôn ngữ (Dùng để trả lời câu hỏi)
-    ollama pull qwen2.5:1.5b
-
-    # Tải model embedding (Dùng để xử lý nội dung PDF)
-    ollama pull nomic-embed-text
-    ```
-
-## 3. Cấu hình Backend
-1.  Vào thư mục `backend/`.
-2.  Mở file `.env` và kiểm tra cấu hình URL của Ollama:
-    ```dotenv
-    OLLAMA_URL=http://localhost:11434
-    ```
-3.  Cài đặt các thư viện mới (LangChain, Ollama integration, pdf-parse...):
-    ```bash
-    npm install @langchain/ollama pdf-parse langchain @langchain/community
-    ```
-
-## 4. Cách chạy và kiểm tra
-1.  Khởi động Backend: `npm run dev`
-2.  Sử dụng Postman hoặc Curl để kiểm tra API:
-
-### A. Nạp tài liệu (Ingest)
-Gửi đường dẫn file PDF để AI học nội dung (Trong giai đoạn dev, truyền `filePath` trực tiếp).
-- **Method**: `POST`
-- **URL**: `http://localhost:5000/api/ai/ingest`
-- **Body (JSON)**:
-  ```json
-  {
-    "filePath": "C:/path/to/your/document.pdf"
-  }
-  ```
-
-### B. Hỏi đáp (Ask)
-Hỏi về nội dung tài liệu đã nạp.
-- **Method**: `POST`
-- **URL**: `http://localhost:5000/api/ai/ask`
-- **Body (JSON)**:
-  ```json
-  {
-    "question": "Nội dung chính của tài liệu này là gì?"
-  }
-  ```
-
-## 5. Lưu ý cho Frontend
-- API AI được đăng ký tại tiền tố `/api/ai`.
-- Các bạn FE có thể gọi trực tiếp các endpoint trên để tích hợp vào Sidebar Chat hoặc chức năng hỗ trợ học tập.
+## 3. Cách chạy (Lần đầu & Lần sau)
+Mỗi khi muốn làm việc với AI, bạn chỉ cần thực hiện đúng 2 bước:
+1. **Mở Ollama** (Nếu chưa chạy).
+2. **Chạy Backend**: 
+   ```bash
+   cd backend
+   npm run dev
+   ```
 
 ---
-**Ghi chú**: Nếu gặp lỗi "Connection Refused", hãy đảm bảo ứng dụng Ollama đang chạy ở background.
+
+## 🛠 Kiểm tra nhanh qua Postman
+1. **Nạp file (Ingest)**: `POST http://localhost:5000/api/ai/ingest`
+   - Body JSON: `{ "filePath": "tên_file.pdf" }`
+   - *Mẹo: Copy file PDF vào thư mục backend để dùng tên file ngắn gọn.*
+2. **Hỏi đáp (Ask)**: `POST http://localhost:5000/api/ai/ask`
+   - Body JSON: `{ "question": "Nội dung là gì?" }`
+
+> **Lưu ý**: Nếu báo lỗi `ENOENT`, hãy kiểm tra lại đường dẫn file có đúng không (ưu tiên để file trong thư mục `backend`).

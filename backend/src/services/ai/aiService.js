@@ -12,8 +12,11 @@ class AIService {
 
     async processDocument(filePath) {
         try {
-            const fileBuffer = await fs.readFile(filePath);
-            return await ragPipeline.ingestDocument(fileBuffer);
+            // Decode URI component to handle %20 and other encoded characters
+            const decodedPath = decodeURIComponent(filePath);
+            const fileBuffer = await fs.readFile(decodedPath);
+            const isPdf = decodedPath.toLowerCase().endsWith('.pdf');
+            return await ragPipeline.ingestDocument(fileBuffer, isPdf);
         } catch (error) {
             console.error("Error processing document:", error);
             throw error;
