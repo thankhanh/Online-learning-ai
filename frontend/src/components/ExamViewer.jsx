@@ -50,56 +50,62 @@ const ExamViewer = () => {
     };
 
     return (
-        <div className="exam-viewer">
-            <header className="exam-header">
-                <h2>{MOCK_EXAM.title}</h2>
-                <div className={`timer ${timeLeft < 60 ? 'warning' : ''}`}>
+        <div className="container py-4">
+            <header className="d-flex justify-content-between align-items-center mb-4 text-white">
+                <h2 className="h3 fw-bold">{MOCK_EXAM.title}</h2>
+                <div className={`badge fs-5 ${timeLeft < 60 ? 'bg-danger' : 'bg-primary'}`}>
                     Time Left: {formatTime(timeLeft)}
                 </div>
             </header>
 
-            <div className="exam-questions">
+            <div className="d-flex flex-column gap-4">
                 {MOCK_EXAM.questions.map((q, index) => (
-                    <div key={q.id} className="question-card">
-                        <h4>Question {index + 1}: {q.text}</h4>
+                    <div key={q.id} className="card bg-dark border-secondary text-white">
+                        <div className="card-body">
+                            <h4 className="card-title h5 mb-3">Question {index + 1}: {q.text}</h4>
 
-                        {q.type === 'multiple-choice' && (
-                            <div className="options">
-                                {q.options.map(opt => (
-                                    <label key={opt} className="option-label">
-                                        <input
-                                            type="radio"
-                                            name={`q-${q.id}`}
-                                            value={opt}
-                                            checked={answers[q.id] === opt}
-                                            onChange={() => handleOptionChange(q.id, opt)}
-                                            disabled={isSubmitted}
-                                        />
-                                        {opt}
-                                    </label>
-                                ))}
-                            </div>
-                        )}
+                            {q.type === 'multiple-choice' && (
+                                <div className="d-flex flex-column gap-2">
+                                    {q.options.map(opt => (
+                                        <div key={opt} className="form-check">
+                                            <input
+                                                className="form-check-input"
+                                                type="radio"
+                                                name={`q-${q.id}`}
+                                                id={`q-${q.id}-${opt}`}
+                                                value={opt}
+                                                checked={answers[q.id] === opt}
+                                                onChange={() => handleOptionChange(q.id, opt)}
+                                                disabled={isSubmitted}
+                                            />
+                                            <label className="form-check-label" htmlFor={`q-${q.id}-${opt}`}>
+                                                {opt}
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                        {q.type === 'essay' && (
-                            <textarea
-                                className="essay-input"
-                                value={answers[q.id] || ''}
-                                onChange={(e) => handleEssayChange(q.id, e.target.value)}
-                                disabled={isSubmitted}
-                                placeholder="Type your answer here..."
-                                rows={4}
-                            />
-                        )}
+                            {q.type === 'essay' && (
+                                <textarea
+                                    className="form-control bg-dark border-secondary text-white"
+                                    value={answers[q.id] || ''}
+                                    onChange={(e) => handleEssayChange(q.id, e.target.value)}
+                                    disabled={isSubmitted}
+                                    placeholder="Type your answer here..."
+                                    rows={4}
+                                />
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
 
-            <div className="exam-actions">
+            <div className="mt-4">
                 <button
                     onClick={handleSubmit}
                     disabled={isSubmitted}
-                    className="submit-btn"
+                    className="btn btn-success btn-lg w-100"
                 >
                     {isSubmitted ? 'Submitted' : 'Submit Exam'}
                 </button>
