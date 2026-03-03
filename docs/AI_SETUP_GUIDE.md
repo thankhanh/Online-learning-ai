@@ -27,9 +27,9 @@ Ollama là công cụ dùng để chạy các mô hình ngôn ngữ lớn (LLM) 
     ```dotenv
     OLLAMA_URL=http://localhost:11434
     ```
-3.  Cài đặt các thư viện mới (LangChain, pdf-parse...):
+3.  Cài đặt các thư viện mới (LangChain, Ollama integration, pdf-parse...):
     ```bash
-    npm install
+    npm install @langchain/ollama pdf-parse langchain @langchain/community
     ```
 
 ## 4. Cách chạy và kiểm tra

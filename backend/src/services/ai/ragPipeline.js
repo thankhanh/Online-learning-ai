@@ -6,7 +6,7 @@
 
 const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
 const { MemoryVectorStore } = require('langchain/vectorstores/memory');
-const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama');
+const { OllamaEmbeddings } = require('@langchain/ollama');
 const pdf = require('pdf-parse');
 
 class RagPipeline {

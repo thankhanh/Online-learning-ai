@@ -1,4 +1,4 @@
-const { Ollama } = require('@langchain/community/llms/ollama');
+const { Ollama } = require('@langchain/ollama');
 const ragPipeline = require('./ragPipeline');
 const fs = require('fs').promises;
 
