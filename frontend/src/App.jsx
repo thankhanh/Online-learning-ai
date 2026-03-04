@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from './utils/api'
 import { io } from 'socket.io-client'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -23,7 +23,7 @@ import ExamList from './features/student/ExamList'
 import UserManagement from './features/admin/UserManagement'
 import CategoryManagement from './features/admin/CategoryManagement'
 
-const socket = io('http://localhost:5000')
+const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000')
 
 function App() {
   const [apiStatus, setApiStatus] = useState('Checking...')
@@ -32,24 +32,37 @@ function App() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Check API
-    axios.get('http://localhost:5000/')
-      .then(res => setApiStatus(res.data.message))
-      .catch(err => setApiStatus('Error: ' + err.message))
-
-    // Check Socket
-    socket.on('connect', () => setSocketStatus('Connected: ' + socket.id))
-    socket.on('disconnect', () => setSocketStatus('Disconnected'))
-
-    // Check existing login
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
+    // 1. Check existing login & persistent session
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/auth/me')
+        .then(res => {
+          if (res.data.success) {
+            setUser(res.data.user);
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+          }
+        })
+        .catch(err => {
+          console.error('Session validation failed:', err.message);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        });
     }
 
+    // 2. API Status Check
+    api.get('/').then(() => setApiStatus('Online')).catch(() => setApiStatus('Offline'));
+
+    // 3. Socket Event Listeners
+    const onConnect = () => setSocketStatus('Connected: ' + socket.id);
+    const onDisconnect = () => setSocketStatus('Disconnected');
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
     return () => {
-      socket.off('connect')
-      socket.off('disconnect')
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
     }
   }, [])
 
