@@ -4,21 +4,40 @@
 // 3. Vectorize
 // 4. Store
 
-const { RecursiveCharacterTextSplitter } = require('@langchain/classic/text_splitter');
-const { MemoryVectorStore } = require('@langchain/classic/vectorstores/memory');
+const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
+const { MongoDBAtlasVectorSearch } = require('@langchain/mongodb');
 const { OllamaEmbeddings } = require('@langchain/ollama');
+const mongoose = require('mongoose');
 const pdf = require('pdf-parse');
 
 class RagPipeline {
     constructor() {
         this.embeddings = new OllamaEmbeddings({
             baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-            model: 'nomic-embed-text', // Or whatever embedding model user has
+            model: 'nomic-embed-text',
         });
         this.vectorStore = null;
     }
 
-    async ingestDocument(fileBuffer, isPdf = true) {
+    async getVectorStore() {
+        if (this.vectorStore) return this.vectorStore;
+
+        if (mongoose.connection.readyState !== 1) {
+            console.warn("MongoDB not connected yet.");
+            return null;
+        }
+
+        const collection = mongoose.connection.db.collection("vectors");
+        this.vectorStore = new MongoDBAtlasVectorSearch(this.embeddings, {
+            collection: collection,
+            indexName: "vector_index", // User needs to create this in Atlas
+            textKey: "text",
+            embeddingKey: "embedding",
+        });
+        return this.vectorStore;
+    }
+
+    async ingestDocument(fileBuffer, metadata = {}, isPdf = true) {
         try {
             console.log(`Starting document ingestion (isPdf: ${isPdf})...`);
             let text = "";
@@ -39,11 +58,14 @@ class RagPipeline {
                 chunkOverlap: 200,
             });
 
-            const docs = await textSplitter.createDocuments([text]);
-            console.log(`Split document into ${docs.length} chunks.`);
+            const docs = await textSplitter.createDocuments([text], [metadata]);
+            console.log(`Split document into ${docs.length} chunks with metadata:`, metadata);
 
-            this.vectorStore = await MemoryVectorStore.fromDocuments(docs, this.embeddings);
-            console.log("Vector store initialized.");
+            const vectorStore = await this.getVectorStore();
+            if (!vectorStore) throw new Error("Could not initialize Vector Store");
+
+            await vectorStore.addDocuments(docs);
+            console.log("Vectors saved to MongoDB.");
             return true;
         } catch (error) {
             console.error("Error in ingestDocument:", error);
@@ -51,13 +73,15 @@ class RagPipeline {
         }
     }
 
-    async retrieveContext(query) {
-        if (!this.vectorStore) {
+    async retrieveContext(query, filter = {}) {
+        const vectorStore = await this.getVectorStore();
+        if (!vectorStore) {
             console.warn("Vector store not initialized. Returning empty context.");
             return "";
         }
         try {
-            const results = await this.vectorStore.similaritySearch(query, 4);
+            // MongoDB Atlas Vector Search supports pre-filtering
+            const results = await vectorStore.similaritySearch(query, 4, filter);
             return results.map(doc => doc.pageContent).join("\n\n");
         } catch (error) {
             console.error("Error in retrieveContext:", error);

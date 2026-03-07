@@ -1,13 +1,16 @@
 const aiService = require('../services/ai/aiService');
+const Material = require('../models/Material');
 
 exports.askAI = async (req, res) => {
     try {
-        const { question } = req.body;
+        const { question, classroomId } = req.body;
         if (!question) {
             return res.status(400).json({ message: "Question is required." });
         }
 
-        const answer = await aiService.askQuestion(question);
+        // Optional: filter by classroom if provided
+        const filter = classroomId ? { classroomId } : {};
+        const answer = await aiService.askQuestion(question, filter);
         res.json({ answer });
     } catch (error) {
         console.error("Error in askAI controller:", error);
@@ -17,16 +20,48 @@ exports.askAI = async (req, res) => {
 
 exports.ingestDocument = async (req, res) => {
     try {
-        // In a real scenario, we'd use multer to handle the file upload
-        // For now, let's assume the client sends a filePath (for local testing)
-        // or we'll implement multer later.
-        const { filePath } = req.body;
-        if (!filePath) {
-            return res.status(400).json({ message: "FilePath is required." });
+        const { title, classroomId, userId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ message: "No file uploaded. Please upload a PDF file." });
         }
 
-        await aiService.processDocument(filePath);
-        res.json({ message: "Document ingested successfully." });
+        if (!classroomId || !userId) {
+            return res.status(400).json({
+                message: "Missing required fields: classroomId and userId are required."
+            });
+        }
+
+        const filePath = file.path;
+
+        // 1. Create Material record
+        const material = new Material({
+            title: title || file.originalname,
+            fileUrl: filePath,
+            classroom: classroomId,
+            uploadedBy: userId,
+            vectorsStored: false
+        });
+        await material.save();
+
+        // 2. Process document with metadata
+        const metadata = {
+            materialId: material._id.toString(),
+            classroomId: classroomId
+        };
+
+        await aiService.processDocument(filePath, metadata);
+
+        // 3. Mark as processed
+        material.vectorsStored = true;
+        await material.save();
+
+        res.json({
+            message: "File uploaded and trained successfully.",
+            materialId: material._id,
+            fileName: file.originalname
+        });
     } catch (error) {
         console.error("Error in ingestDocument controller:", error);
         res.status(500).json({ message: "Error ingesting document.", error: error.message });

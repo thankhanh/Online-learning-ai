@@ -10,22 +10,22 @@ class AIService {
         });
     }
 
-    async processDocument(filePath) {
+    async processDocument(filePath, metadata = {}) {
         try {
             // Decode URI component to handle %20 and other encoded characters
             const decodedPath = decodeURIComponent(filePath);
             const fileBuffer = await fs.readFile(decodedPath);
             const isPdf = decodedPath.toLowerCase().endsWith('.pdf');
-            return await ragPipeline.ingestDocument(fileBuffer, isPdf);
+            return await ragPipeline.ingestDocument(fileBuffer, metadata, isPdf);
         } catch (error) {
             console.error("Error processing document:", error);
             throw error;
         }
     }
 
-    async askQuestion(question) {
+    async askQuestion(question, filter = {}) {
         try {
-            const context = await ragPipeline.retrieveContext(question);
+            const context = await ragPipeline.retrieveContext(question, filter);
 
             const prompt = `Bạn là một trợ lý học tập thông minh. 
 Sử dụng ngữ cảnh dưới đây để trả lời câu hỏi của người dùng. 
