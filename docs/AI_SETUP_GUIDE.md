@@ -25,12 +25,18 @@ Dành cho các thành viên muốn chạy và code AI trên máy mới.
 3. Chọn collection `vectors` và dán cấu hình này:
    ```json
    {
-     "fields": [{
-       "numDimensions": 768,
-       "path": "embedding",
-       "similarity": "cosine",
-       "type": "vector"
-     }]
+     "fields": [
+       {
+         "numDimensions": 768,
+         "path": "embedding",
+         "similarity": "cosine",
+         "type": "vector"
+       },
+       {
+         "path": "classroomId",
+         "type": "filter"
+       }
+     ]
    }
    ```
 

@@ -80,15 +80,21 @@ class RagPipeline {
             return "";
         }
         try {
-            // MongoDB Atlas Vector Search supports pre-filtering
+            // MongoDB Atlas Vector Search supports
             const results = await vectorStore.similaritySearch(query, 4, filter);
-            return results.map(doc => doc.pageContent).join("\n\n");
+            console.log(`AI Search: Found ${results.length} relevant context chunks.`);
+
+            if (results.length === 0) {
+                console.warn("⚠️ No relevant context found! Check if classroomId matches and Atlas Search Index allows filtering.");
+                return "";
+            }
+
+            return results.map(doc => doc.pageContent).join('\n\n');
         } catch (error) {
-            console.error("Error in retrieveContext:", error);
+            console.error("Error during similaritySearch:", error);
             throw error;
         }
     }
 }
 
-module.exports = new RagPipeline();
 
