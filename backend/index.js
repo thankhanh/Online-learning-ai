@@ -35,6 +35,7 @@ app.get('/', (req, res) => {
 // Import Socket Handlers
 require('./src/socket/examSocket')(io);
 require('./src/socket/classroomSocket')(io);
+require('./src/socket/meetingSocket')(io);
 
 // Server Listen
 const PORT = process.env.PORT || 5000;

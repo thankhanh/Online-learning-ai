@@ -1,173 +1,778 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Form, InputGroup, Tab, Tabs, Badge } from 'react-bootstrap';
+/**
+ * VirtualClassroom.jsx
+ * Phòng học trực tuyến — Google Meet style
+ * Hỗ trợ: Video, Mic, Screen Share, Chat, AI Tutor
+ * WebRTC thông qua hook useMeeting
+ */
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Button, Form, InputGroup, Badge } from 'react-bootstrap';
+import { io } from 'socket.io-client';
+import { useMeeting } from '../../hooks/useMeeting';
+import { useParams, useNavigate } from 'react-router-dom';
 
+// Kết nối tới namespace /meeting
+const meetingSocket = io('http://localhost:5000/meeting', { autoConnect: false });
+
+// ─── Video Tile Component ─────────────────────────────────────────────────────
+function VideoTile({ stream, userInfo, isMicOn = true, isCameraOn = true, isLocal = false, isLarge = false }) {
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    return (
+        <div
+            style={{
+                position: 'relative',
+                background: '#1a1a2e',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: '2px solid rgba(255,255,255,0.1)',
+                transition: 'border-color 0.2s',
+                width: '100%',
+                height: '100%',
+                minHeight: isLarge ? '300px' : '160px',
+            }}
+        >
+            {/* Video Element */}
+            {stream && isCameraOn ? (
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted={isLocal}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transform: isLocal ? 'scaleX(-1)' : 'none',
+                    }}
+                />
+            ) : (
+                // Avatar placeholder khi camera tắt
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                }}>
+                    <div style={{
+                        width: isLarge ? '80px' : '56px',
+                        height: isLarge ? '80px' : '56px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: isLarge ? '2rem' : '1.5rem',
+                        fontWeight: 700,
+                        color: '#fff',
+                        marginBottom: '0.5rem',
+                    }}>
+                        {userInfo?.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <span style={{ color: '#a0aec0', fontSize: '0.85rem' }}>{userInfo?.name || 'Unknown'}</span>
+                </div>
+            )}
+
+            {/* Overlay thông tin phía dưới */}
+            <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: '6px 10px',
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+            }}>
+                <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 600 }}>
+                    {userInfo?.name || 'Unknown'} {isLocal ? '(Bạn)' : ''}
+                    {userInfo?.role === 'teacher' && (
+                        <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.65rem' }}>GV</Badge>
+                    )}
+                </span>
+                {!isMicOn && (
+                    <i className="bi bi-mic-mute-fill text-danger" style={{ fontSize: '0.9rem' }}></i>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Main VirtualClassroom Component ─────────────────────────────────────────
 export default function VirtualClassroom() {
-    const [activeTab, setActiveTab] = useState('chat');
-    const [chatMode, setChatMode] = useState('class'); // 'class' or 'ai'
+    const { id: roomId } = useParams();
+    const navigate = useNavigate();
+
+    // Lấy thông tin user từ localStorage
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userInfo = { name: user.name || user.email || 'Người dùng', role: user.role || 'student', userId: user._id || user.id };
+
+    // ── Media States ──────────────────────────────────────────────────────────
+    const [isMicOn, setIsMicOn] = useState(false);
+    const [isCameraOn, setIsCameraOn] = useState(false);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [localStream, setLocalStream] = useState(null);
+    const [screenStream, setScreenStream] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
+    const [isJoined, setIsJoined] = useState(false);
+
+    // ── Chat States ───────────────────────────────────────────────────────────
+    const [chatMode, setChatMode] = useState('class'); // 'class' | 'ai'
     const [messages, setMessages] = useState([
-        { id: 1, sender: 'Teacher', text: 'Chào cả lớp, hôm nay chúng ta học về Neural Networks.', type: 'class' },
-        { id: 2, sender: 'Student A', text: 'Thầy ơi, slide này có trên hệ thống chưa ạ?', type: 'class' },
+        { id: 1, sender: 'Hệ thống', text: `Chào mừng đến phòng học ${roomId}! 👋` },
     ]);
     const [aiMessages, setAiMessages] = useState([
-        { id: 1, sender: 'AI Tutor', text: 'Chào bạn! Tôi có thể giúp gì cho bạn về bài học hôm nay?', isAi: true }
+        { id: 1, sender: 'AI Tutor', text: 'Chào bạn! Tôi có thể giải đáp thắc mắc về bài học hôm nay.', isAi: true },
     ]);
     const [inputValue, setInputValue] = useState('');
+    const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'people'
+    const chatEndRef = useRef(null);
+
+    // ── Screen Share Ref ──────────────────────────────────────────────────────
+    const screenVideoRef = useRef(null);
+
+    // ── Socket & WebRTC ───────────────────────────────────────────────────────
+    const { peers } = useMeeting({
+        socket: isJoined ? meetingSocket : null,
+        roomId,
+        userInfo,
+        localStream,
+    });
+
+    // ── Connect Socket khi vào trang ──────────────────────────────────────────
+    useEffect(() => {
+        meetingSocket.connect();
+
+        meetingSocket.on('connect', () => {
+            console.log('[Meeting] Socket connected:', meetingSocket.id);
+            setIsConnected(true);
+        });
+
+        meetingSocket.on('disconnect', () => {
+            setIsConnected(false);
+            setIsJoined(false);
+        });
+
+        // Nhận chat message từ người khác
+        meetingSocket.on('new-message', (msg) => {
+            setMessages((prev) => [...prev, { ...msg, id: Date.now() }]);
+        });
+
+        return () => {
+            meetingSocket.off('connect');
+            meetingSocket.off('disconnect');
+            meetingSocket.off('new-message');
+            meetingSocket.disconnect();
+            // Dọn dẹp media
+            if (localStream) localStream.getTracks().forEach((t) => t.stop());
+            if (screenStream) screenStream.getTracks().forEach((t) => t.stop());
+        };
+    }, []);
+
+    // Auto scroll chat
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, aiMessages]);
+
+    // Cập nhật screen video ref
+    useEffect(() => {
+        if (screenVideoRef.current && screenStream) {
+            screenVideoRef.current.srcObject = screenStream;
+        }
+    }, [screenStream]);
+
+    // Broadcast trạng thái media khi thay đổi
+    useEffect(() => {
+        if (isJoined) {
+            meetingSocket.emit('media-state-change', { roomId, isMicOn, isCameraOn });
+        }
+    }, [isMicOn, isCameraOn, isJoined, roomId]);
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
+    const handleJoinMeeting = async () => {
+        // Bật camera + mic khi join
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            setLocalStream(stream);
+            setIsMicOn(true);
+            setIsCameraOn(true);
+        } catch (err) {
+            console.warn('[Meeting] Could not get media:', err);
+            // Tham gia mà không có media cũng được
+        }
+        setIsJoined(true);
+    };
+
+    const toggleMic = useCallback(() => {
+        if (!localStream) return;
+        const track = localStream.getAudioTracks()[0];
+        if (track) {
+            track.enabled = !isMicOn;
+            setIsMicOn(!isMicOn);
+        }
+    }, [localStream, isMicOn]);
+
+    const toggleCamera = useCallback(async () => {
+        if (isCameraOn) {
+            localStream?.getVideoTracks().forEach((t) => { t.enabled = false; });
+            setIsCameraOn(false);
+        } else {
+            if (localStream?.getVideoTracks().length > 0) {
+                localStream.getVideoTracks()[0].enabled = true;
+                setIsCameraOn(true);
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: isMicOn });
+                    setLocalStream(stream);
+                    setIsCameraOn(true);
+                } catch (err) {
+                    alert('Không thể truy cập camera.');
+                }
+            }
+        }
+    }, [isCameraOn, localStream, isMicOn]);
+
+    const toggleScreenShare = useCallback(async () => {
+        if (isScreenSharing) {
+            screenStream?.getTracks().forEach((t) => t.stop());
+            setScreenStream(null);
+            setIsScreenSharing(false);
+            meetingSocket.emit('screen-share-stop', { roomId });
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                stream.getVideoTracks()[0].onended = () => {
+                    setIsScreenSharing(false);
+                    setScreenStream(null);
+                    meetingSocket.emit('screen-share-stop', { roomId });
+                };
+                setScreenStream(stream);
+                setIsScreenSharing(true);
+                meetingSocket.emit('screen-share-start', { roomId });
+            } catch (err) {
+                console.error('Screen share error:', err);
+            }
+        }
+    }, [isScreenSharing, screenStream, roomId]);
+
+    const handleEndCall = useCallback(() => {
+        localStream?.getTracks().forEach((t) => t.stop());
+        screenStream?.getTracks().forEach((t) => t.stop());
+        meetingSocket.disconnect();
+        navigate('/dashboard');
+    }, [localStream, screenStream, navigate]);
 
     const handleSendMessage = () => {
         if (!inputValue.trim()) return;
-
         if (chatMode === 'class') {
-            setMessages([...messages, { id: Date.now(), sender: 'Me', text: inputValue, type: 'class' }]);
+            const msg = { sender: userInfo.name, text: inputValue };
+            meetingSocket.emit('chat-message', { roomId, ...msg });
+            setMessages((prev) => [...prev, { ...msg, id: Date.now(), isMine: true }]);
         } else {
-            const newMsg = { id: Date.now(), sender: 'Me', text: inputValue, isAi: false };
-            setAiMessages([...aiMessages, newMsg]);
-
-            // Mock AI Response
+            setAiMessages((prev) => [...prev, { id: Date.now(), sender: 'Me', text: inputValue, isAi: false }]);
             setTimeout(() => {
-                setAiMessages(prev => [...prev, {
+                setAiMessages((prev) => [...prev, {
                     id: Date.now() + 1,
                     sender: 'AI Tutor',
-                    text: `Trả lời cho "${inputValue}": Mạng nơ-ron nhân tạo (ANN) là mô hình toán học mô tỏng hoạt động của não bộ...`,
-                    source: 'Chuong_2_Machine_Learning_Co_ban.pdf (Trang 12)',
-                    isAi: true
+                    text: `Trả lời về "${inputValue}": Đây là câu hỏi thú vị! Dựa trên tài liệu lớp học, mạng nơ-ron nhân tạo (ANN) mô phỏng hoạt động của não người...`,
+                    source: 'Chuong_2_ML_Co_ban.pdf (Trang 12)',
+                    isAi: true,
                 }]);
-            }, 1000);
+            }, 1200);
         }
         setInputValue('');
     };
 
-    return (
-        <div className="virtual-classroom bg-black vh-100 text-white d-flex flex-column">
-            {/* Header */}
-            <div className="classroom-header p-2 bg-dark border-bottom border-secondary d-flex justify-content-between align-items-center">
-                <div className="d-flex align-items-center">
-                    <Button variant="outline-light" size="sm" className="me-3"><i className="bi bi-arrow-left"></i> Thoát</Button>
-                    <h5 className="m-0">Lớp AI Cơ bản - CS101 (Đang diễn ra)</h5>
+    // ── Grid Layout tính toán ─────────────────────────────────────────────────
+    const peerArray = [...peers.entries()]; // [[socketId, { peer, stream, userInfo, isMicOn, isCameraOn }]]
+    const totalParticipants = peerArray.length + 1; // +1 cho local
+
+    const getGridStyle = () => {
+        if (totalParticipants <= 1) return { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' };
+        if (totalParticipants === 2) return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr' };
+        if (totalParticipants <= 4) return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' };
+        return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'auto' };
+    };
+
+    // ── Lobby Screen (chưa join) ───────────────────────────────────────────────
+    if (!isJoined) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}>
+                <div style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '24px',
+                    padding: '3rem',
+                    maxWidth: '440px',
+                    width: '90%',
+                    textAlign: 'center',
+                    color: '#fff',
+                }}>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎓</div>
+                    <h2 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Phòng học trực tuyến</h2>
+                    <p style={{ color: '#a0aec0', marginBottom: '0.25rem' }}>Mã phòng: <strong style={{ color: '#818cf8' }}>{roomId}</strong></p>
+                    <p style={{ color: '#a0aec0', marginBottom: '2rem' }}>
+                        Xin chào, <strong style={{ color: '#fff' }}>{userInfo.name}</strong>!
+                    </p>
+
+                    <div style={{
+                        background: 'rgba(79, 70, 229, 0.15)',
+                        border: '1px solid rgba(79, 70, 229, 0.3)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        marginBottom: '1.5rem',
+                        textAlign: 'left',
+                        fontSize: '0.9rem',
+                        color: '#c7d2fe',
+                    }}>
+                        <p className="mb-1">✅ Camera và Mic sẽ được bật khi tham gia</p>
+                        <p className="mb-1">✅ Có thể chia sẻ màn hình</p>
+                        <p className="mb-0">✅ Chat nhóm và AI Tutor</p>
+                    </div>
+
+                    <button
+                        onClick={handleJoinMeeting}
+                        disabled={!isConnected}
+                        style={{
+                            width: '100%',
+                            padding: '14px',
+                            background: isConnected
+                                ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
+                                : '#374151',
+                            border: 'none',
+                            borderRadius: '12px',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '1rem',
+                            cursor: isConnected ? 'pointer' : 'not-allowed',
+                            transition: 'opacity 0.2s',
+                        }}
+                    >
+                        {isConnected ? '🚀 Tham gia ngay' : '⏳ Đang kết nối...'}
+                    </button>
                 </div>
-                <div>
-                    <Badge bg="danger" className="me-2 animate-pulse">🔴 LIVE</Badge>
-                    <span>01:30:45</span>
+            </div>
+        );
+    }
+
+    // ── Main Meeting UI ───────────────────────────────────────────────────────
+    return (
+        <div style={{
+            height: '100vh',
+            background: '#0f1117',
+            display: 'flex',
+            flexDirection: 'column',
+            fontFamily: "'Inter', sans-serif",
+            overflow: 'hidden',
+        }}>
+            {/* ── Header ──────────────────────────────────────────────── */}
+            <div style={{
+                height: '54px',
+                background: '#16181d',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 20px',
+                flexShrink: 0,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>🎓 EduMeet</span>
+                    <Badge bg="danger" style={{ animation: 'pulse 2s infinite', fontSize: '0.7rem' }}>🔴 LIVE</Badge>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#a0aec0', fontSize: '0.85rem' }}>
+                        Phòng: <strong style={{ color: '#818cf8' }}>{roomId}</strong>
+                    </span>
+                    <span style={{ color: '#4ade80', fontSize: '0.8rem' }}>
+                        <i className="bi bi-people-fill"></i> {totalParticipants} người
+                    </span>
                 </div>
             </div>
 
-            <div className="flex-grow-1 d-flex overflow-hidden">
-                {/* Main Content: Video & Whiteboard */}
-                <div className="flex-grow-1 p-3 d-flex flex-column" style={{ maxWidth: '75%' }}>
-                    {/* Main Video Stream / Whiteboard */}
-                    <div className="flex-grow-1 bg-secondary rounded position-relative mb-3 d-flex align-items-center justify-content-center">
-                        {/* Placeholder for Video/Whiteboard */}
-                        <div className="text-center">
-                            <i className="bi bi-person-video3 display-1"></i>
-                            <h3>Màn hình Giảng viên / Bảng trắng</h3>
-                        </div>
+            {/* ── Body ────────────────────────────────────────────────── */}
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-                        {/* Controls Overlay */}
-                        <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3 p-2 bg-dark rounded-pill bg-opacity-75 d-flex gap-3">
-                            <Button variant="danger" className="rounded-circle"><i className="bi bi-mic-mute"></i></Button>
-                            <Button variant="secondary" className="rounded-circle"><i className="bi bi-camera-video-off"></i></Button>
-                            <Button variant="primary" className="rounded-circle"><i className="bi bi-hand-index-thumb"></i></Button>
-                            <Button variant="info" className="rounded-circle"><i className="bi bi-easel"></i></Button>
-                        </div>
-                    </div>
+                {/* ── Video Area ──────────────────────────────────────── */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px', gap: '10px', overflow: 'hidden' }}>
 
-                    {/* Peer Videos Grid */}
-                    <div className="d-flex gap-2 overflow-auto" style={{ height: '120px' }}>
-                        {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className="bg-dark border border-secondary rounded" style={{ minWidth: '160px', position: 'relative' }}>
-                                <div className="position-absolute bottom-0 start-0 p-1 small bg-black bg-opacity-50 w-100">Student {i}</div>
-                                <div className="d-flex w-100 h-100 align-items-center justify-content-center bg-secondary text-muted">
-                                    <i className="bi bi-person-fill"></i>
-                                </div>
+                    {/* Main screen share view */}
+                    {isScreenSharing && (
+                        <div style={{
+                            flex: 1,
+                            background: '#000',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            border: '2px solid #4f46e5',
+                        }}>
+                            <video
+                                ref={screenVideoRef}
+                                autoPlay
+                                playsInline
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            />
+                            <div style={{
+                                position: 'absolute',
+                                top: '10px',
+                                left: '10px',
+                                background: 'rgba(79,70,229,0.9)',
+                                color: '#fff',
+                                padding: '4px 10px',
+                                borderRadius: '20px',
+                                fontSize: '0.8rem',
+                            }}>
+                                📺 Đang chia sẻ màn hình
                             </div>
+                        </div>
+                    )}
+
+                    {/* Video Grid */}
+                    <div style={{
+                        flex: isScreenSharing ? '0 0 180px' : 1,
+                        display: 'grid',
+                        ...getGridStyle(),
+                        gap: '10px',
+                        overflow: 'hidden',
+                    }}>
+                        {/* Local Video */}
+                        <VideoTile
+                            stream={localStream}
+                            userInfo={userInfo}
+                            isMicOn={isMicOn}
+                            isCameraOn={isCameraOn}
+                            isLocal={true}
+                            isLarge={totalParticipants <= 2}
+                        />
+
+                        {/* Remote Peers */}
+                        {peerArray.map(([socketId, { stream, userInfo: peerInfo, isMicOn: pMic, isCameraOn: pCam }]) => (
+                            <VideoTile
+                                key={socketId}
+                                stream={stream}
+                                userInfo={peerInfo}
+                                isMicOn={pMic}
+                                isCameraOn={pCam}
+                                isLocal={false}
+                                isLarge={totalParticipants <= 2}
+                            />
                         ))}
                     </div>
                 </div>
 
-                {/* Right Sidebar: Chat & Tools */}
-                <div className="d-flex flex-column border-start border-secondary bg-dark" style={{ width: '25%', minWidth: '300px' }}>
-                    <Tabs
-                        activeKey={activeTab}
-                        onSelect={(k) => setActiveTab(k)}
-                        className="mb-0 border-bottom border-secondary"
-                        variant="pills"
-                        fill
-                    >
-                        <Tab eventKey="chat" title="💬 Chat">
-                            <div className="d-flex flex-column h-100" style={{ height: 'calc(100vh - 110px)' }}>
+                {/* ── Right Sidebar ────────────────────────────────────── */}
+                <div style={{
+                    width: '320px',
+                    background: '#16181d',
+                    borderLeft: '1px solid rgba(255,255,255,0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexShrink: 0,
+                }}>
+                    {/* Tab Header */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        {[
+                            { key: 'chat', label: '💬 Chat' },
+                            { key: 'people', label: `👥 (${totalParticipants})` },
+                        ].map((tab) => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: 'none',
+                                    border: 'none',
+                                    borderBottom: activeTab === tab.key ? '2px solid #4f46e5' : '2px solid transparent',
+                                    color: activeTab === tab.key ? '#818cf8' : '#6b7280',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    fontSize: '0.85rem',
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        {activeTab === 'chat' ? (
+                            <>
                                 {/* Chat Mode Toggle */}
-                                <div className="p-2 border-bottom border-secondary d-flex justify-content-center gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant={chatMode === 'class' ? 'primary' : 'outline-primary'}
-                                        onClick={() => setChatMode('class')}
-                                    >
-                                        Hỏi Lớp
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant={chatMode === 'ai' ? 'success' : 'outline-success'}
-                                        onClick={() => setChatMode('ai')}
-                                    >
-                                        ✨ Hỏi AI Tutor
-                                    </Button>
+                                <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '8px' }}>
+                                    {['class', 'ai'].map((mode) => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setChatMode(mode)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '6px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                background: chatMode === mode
+                                                    ? (mode === 'class' ? 'rgba(79,70,229,0.3)' : 'rgba(34,197,94,0.2)')
+                                                    : 'rgba(255,255,255,0.05)',
+                                                color: chatMode === mode
+                                                    ? (mode === 'class' ? '#818cf8' : '#4ade80')
+                                                    : '#6b7280',
+                                                fontWeight: 600,
+                                                fontSize: '0.8rem',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            {mode === 'class' ? '👥 Lớp học' : '✨ AI Tutor'}
+                                        </button>
+                                    ))}
                                 </div>
 
-                                {/* Chat Display */}
-                                <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar">
+                                {/* Messages */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
                                     {chatMode === 'class' ? (
-                                        messages.map(msg => (
-                                            <div key={msg.id} className="mb-2">
-                                                <strong>{msg.sender}: </strong>
-                                                <span>{msg.text}</span>
+                                        messages.map((msg) => (
+                                            <div key={msg.id} style={{ marginBottom: '10px' }}>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: msg.isMine ? '#818cf8' : '#4ade80',
+                                                    fontWeight: 600,
+                                                    marginBottom: '2px',
+                                                }}>
+                                                    {msg.sender}
+                                                </div>
+                                                <div style={{
+                                                    background: msg.isMine ? 'rgba(79,70,229,0.2)' : 'rgba(255,255,255,0.06)',
+                                                    border: `1px solid ${msg.isMine ? 'rgba(79,70,229,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                                    borderRadius: '10px',
+                                                    padding: '8px 12px',
+                                                    color: '#e2e8f0',
+                                                    fontSize: '0.875rem',
+                                                }}>
+                                                    {msg.text}
+                                                </div>
                                             </div>
                                         ))
                                     ) : (
-                                        aiMessages.map(msg => (
-                                            <div key={msg.id} className={`d-flex flex-column mb-3 ${msg.sender === 'Me' ? 'align-items-end' : 'align-items-start'}`}>
-                                                <div className={`p-2 rounded ${msg.sender === 'Me' ? 'bg-secondary text-white' : 'bg-success text-white bg-opacity-25 border border-success'}`} style={{ maxWidth: '90%' }}>
-                                                    {msg.isAi && <strong>🤖 AI Tutor: </strong>}
+                                        aiMessages.map((msg) => (
+                                            <div key={msg.id} style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'Me' ? 'flex-end' : 'flex-start' }}>
+                                                <div style={{
+                                                    maxWidth: '90%',
+                                                    background: msg.isAi ? 'rgba(34,197,94,0.1)' : 'rgba(79,70,229,0.2)',
+                                                    border: `1px solid ${msg.isAi ? 'rgba(34,197,94,0.3)' : 'rgba(79,70,229,0.3)'}`,
+                                                    borderRadius: '10px',
+                                                    padding: '8px 12px',
+                                                    color: '#e2e8f0',
+                                                    fontSize: '0.875rem',
+                                                }}>
+                                                    {msg.isAi && <div style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', marginBottom: '4px' }}>🤖 AI Tutor</div>}
                                                     {msg.text}
+                                                    {msg.source && (
+                                                        <div style={{ marginTop: '6px', color: '#60a5fa', fontSize: '0.75rem' }}>
+                                                            📎 {msg.source}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {msg.source && (
-                                                    <small className="text-info mt-1" style={{ fontSize: '0.75rem' }}>
-                                                        <i className="bi bi-journal-bookmark-fill"></i> Nguồn: {msg.source}
-                                                    </small>
-                                                )}
                                             </div>
                                         ))
                                     )}
+                                    <div ref={chatEndRef} />
                                 </div>
 
-                                {/* Input Area */}
-                                <div className="p-2 border-top border-secondary">
-                                    <InputGroup>
-                                        <Form.Control
-                                            placeholder={chatMode === 'class' ? "Nhập tin nhắn..." : "Hỏi AI về bài học..."}
+                                {/* Input */}
+                                <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder={chatMode === 'class' ? 'Nhắn tin...' : 'Hỏi AI Tutor...'}
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            className="bg-dark text-white border-secondary"
+                                            style={{
+                                                flex: 1,
+                                                background: 'rgba(255,255,255,0.06)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '10px',
+                                                padding: '8px 12px',
+                                                color: '#fff',
+                                                fontSize: '0.875rem',
+                                                outline: 'none',
+                                            }}
                                         />
-                                        <Button variant={chatMode === 'class' ? "primary" : "success"} onClick={handleSendMessage}>
+                                        <button
+                                            onClick={handleSendMessage}
+                                            style={{
+                                                padding: '8px 14px',
+                                                background: chatMode === 'class' ? '#4f46e5' : '#16a34a',
+                                                border: 'none',
+                                                borderRadius: '10px',
+                                                color: '#fff',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
                                             <i className="bi bi-send-fill"></i>
-                                        </Button>
-                                    </InputGroup>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </Tab>
-                        <Tab eventKey="people" title="👥 (45)">
-                            <div className="p-3">
-                                <h6>Giảng viên</h6>
-                                <div className="d-flex align-items-center mb-3">
-                                    <div className="bg-primary rounded-circle me-2" style={{ width: 30, height: 30 }}></div>
-                                    <span>ThS. Nguyễn Văn A</span>
+                            </>
+                        ) : (
+                            // People tab
+                            <div style={{ padding: '12px', overflowY: 'auto' }}>
+                                <p style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: '12px' }}>Trong phòng ({totalParticipants} người)</p>
+
+                                {/* Local user */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', padding: '8px', background: 'rgba(79,70,229,0.1)', borderRadius: '10px', border: '1px solid rgba(79,70,229,0.2)' }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
+                                        {userInfo.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.875rem' }}>{userInfo.name} (Bạn)</div>
+                                        <div style={{ color: '#a0aec0', fontSize: '0.75rem' }}>
+                                            {isMicOn ? <span style={{ color: '#4ade80' }}>🎤 Mic bật</span> : <span style={{ color: '#f87171' }}>🔇 Mic tắt</span>}
+                                            {' · '}
+                                            {isCameraOn ? <span style={{ color: '#4ade80' }}>📹 Cam bật</span> : <span style={{ color: '#f87171' }}>📷 Cam tắt</span>}
+                                        </div>
+                                    </div>
                                 </div>
-                                <h6>Sinh viên (44)</h6>
-                                {/* Demo list */}
+
+                                {/* Remote peers */}
+                                {peerArray.map(([socketId, { userInfo: pInfo, isMicOn: pMic, isCameraOn: pCam }]) => (
+                                    <div key={socketId} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', padding: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
+                                            {(pInfo?.name || '?').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.875rem' }}>
+                                                {pInfo?.name || 'Người dùng'}
+                                                {pInfo?.role === 'teacher' && <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.65rem' }}>GV</Badge>}
+                                            </div>
+                                            <div style={{ color: '#a0aec0', fontSize: '0.75rem' }}>
+                                                {pMic ? <span style={{ color: '#4ade80' }}>🎤 On</span> : <span style={{ color: '#f87171' }}>🔇 Off</span>}
+                                                {' · '}
+                                                {pCam ? <span style={{ color: '#4ade80' }}>📹 On</span> : <span style={{ color: '#f87171' }}>📷 Off</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </Tab>
-                    </Tabs>
+                        )}
+                    </div>
                 </div>
+            </div>
+
+            {/* ── Control Bar ──────────────────────────────────────────── */}
+            <div style={{
+                height: '72px',
+                background: '#16181d',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                flexShrink: 0,
+            }}>
+                {/* Mic */}
+                <button
+                    onClick={toggleMic}
+                    title={isMicOn ? 'Tắt Mic' : 'Bật Mic'}
+                    style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: isMicOn ? 'rgba(255,255,255,0.1)' : '#dc2626',
+                        color: '#fff',
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <i className={`bi ${isMicOn ? 'bi-mic-fill' : 'bi-mic-mute-fill'}`}></i>
+                </button>
+
+                {/* Camera */}
+                <button
+                    onClick={toggleCamera}
+                    title={isCameraOn ? 'Tắt Camera' : 'Bật Camera'}
+                    style={{
+                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
+                        background: isCameraOn ? 'rgba(255,255,255,0.1)' : '#dc2626',
+                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <i className={`bi ${isCameraOn ? 'bi-camera-video-fill' : 'bi-camera-video-off-fill'}`}></i>
+                </button>
+
+                {/* Screen Share */}
+                <button
+                    onClick={toggleScreenShare}
+                    title={isScreenSharing ? 'Dừng chia sẻ' : 'Chia sẻ màn hình'}
+                    style={{
+                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
+                        background: isScreenSharing ? '#4f46e5' : 'rgba(255,255,255,0.1)',
+                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <i className="bi bi-display"></i>
+                </button>
+
+                {/* Chat */}
+                <button
+                    onClick={() => setActiveTab(activeTab === 'chat' ? 'people' : 'chat')}
+                    title="Chat"
+                    style={{
+                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
+                        background: 'rgba(255,255,255,0.1)',
+                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <i className="bi bi-chat-dots-fill"></i>
+                </button>
+
+                {/* Divider */}
+                <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }}></div>
+
+                {/* End Call */}
+                <button
+                    onClick={handleEndCall}
+                    title="Rời phòng"
+                    style={{
+                        padding: '12px 24px',
+                        borderRadius: '24px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #dc2626, #c41e1e)',
+                        color: '#fff',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 20px rgba(220,38,38,0.4)',
+                    }}
+                >
+                    <i className="bi bi-telephone-x-fill"></i> Rời phòng
+                </button>
             </div>
         </div>
     );
