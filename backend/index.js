@@ -29,6 +29,7 @@ app.use(express.json());
 app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/classrooms', require('./src/routes/classroomRoutes'));
 app.use('/api/exams', require('./src/routes/examRoutes'));
+app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 app.get('/', (req, res) => {
     res.json({ message: "Online Learning AI Backend - Monolithic Modular is running!" });
