@@ -73,8 +73,12 @@
 
 #### 📝 Task Details:
 1.  **Authentication (`backend/src/controllers/authController.js`)**:
-    - [ ] API `POST /auth/register` & `/auth/login`.
-    - [ ] Trả về JWT Token + Role (Student/Lecturer).
+    - [x] API `POST /auth/register` & `/auth/login`.
+    - [x] Trả về JWT Token + Role (Student/Lecturer).
+2.  **Classroom Management (`backend/src/controllers/classroomController.js`)**:
+    - [x] API CRUD Classroom.
+    - [x] API `joinClass` bằng mã code.
+    - [x] Phân quyền Lecturer/Student cho Classroom.
 2.  **Exam Logic (`backend/src/socket/examSocket.js`)**:
     - [ ] Handle `join-exam`: Check user info.
     - [ ] Handle `violation`: Nhận cảnh báo gian lận từ Client -> Lưu vào DB Result.

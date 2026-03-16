@@ -43,7 +43,7 @@
 | :--- | :--- | :--- |
 | **🦁 Leader** | - Hỗ trợ Backend tối ưu Query.<br>- Review Logic phân quyền lớp học. | [ ] |
 | **🎨 Frontend** | - UI Danh sách lớp học (Grid/List view).<br>- UI Tạo lớp học (Modal).<br>- Trang chi tiết lớp học (Stream/Newsfeed). | [ ] |
-| **🔌 Backend** | - API CRUD Classroom.<br>- API `joinClass` (bằng code hoặc invite link).<br>- Permission middleware cho lớp học. | [ ] |
+| **🔌 Backend** | - API CRUD Classroom.<br>- API `joinClass` (bằng code hoặc invite link).<br>- Permission middleware cho lớp học. | [x] |
 | **🤖 AI** | - Viết hàm `parsePDF` để đọc tài liệu upload.<br>- Test tách text từ file PDF/Docx. | [ ] |
 
 #### 📅 Tuần 4 (20/02 - 26/02): Tài Liệu & RAG System Core
