@@ -187,3 +187,81 @@ exports.getExamResults = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+/**
+ * @route   GET /api/exams/my-results
+ * @desc    Get all results for the current student
+ * @access  Private/Student
+ */
+exports.getMyResults = async (req, res) => {
+    try {
+        const results = await Result.find({ student: req.user.id })
+            .populate({
+                path: 'exam',
+                select: 'title classroom duration',
+                populate: { path: 'classroom', select: 'name' }
+            })
+            .sort('-createdAt');
+        
+        res.json({ success: true, count: results.length, results });
+    } catch (error) {
+        console.error('Get My Results Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   PUT /api/exams/:id
+ * @desc    Update an exam
+ * @access  Private/Lecturer
+ */
+exports.updateExam = async (req, res) => {
+    try {
+        const { title, classroom, duration, maxViolations, questions } = req.body;
+        let exam = await Exam.findById(req.params.id);
+
+        if (!exam) {
+            return res.status(404).json({ success: false, message: 'Exam not found' });
+        }
+
+        // Check if lecturer owns the class
+        const classObj = await Classroom.findById(exam.classroom);
+        if (classObj.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        exam = await Exam.findByIdAndUpdate(req.params.id, {
+            title, classroom, duration, maxViolations, questions
+        }, { new: true });
+
+        res.json({ success: true, exam });
+    } catch (error) {
+        console.error('Update Exam Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   DELETE /api/exams/:id
+ * @desc    Delete an exam
+ * @access  Private/Lecturer
+ */
+exports.deleteExam = async (req, res) => {
+    try {
+        const exam = await Exam.findById(req.params.id);
+        if (!exam) {
+            return res.status(404).json({ success: false, message: 'Exam not found' });
+        }
+
+        const classObj = await Classroom.findById(exam.classroom);
+        if (classObj.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        await Exam.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: 'Exam deleted successfully' });
+    } catch (error) {
+        console.error('Delete Exam Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
