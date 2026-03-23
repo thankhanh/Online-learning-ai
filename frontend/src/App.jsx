@@ -29,7 +29,48 @@ function App() {
   const [apiStatus, setApiStatus] = useState('Checking...')
   const [socketStatus, setSocketStatus] = useState('Disconnected')
   const [user, setUser] = useState(null)
+  const [notifications, setNotifications] = useState([]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/notifications');
+      if (res.data.success) {
+        // Map backend _id to id if needed, but Notification.jsx uses notif.id
+        const mapped = res.data.notifications.map(n => ({ ...n, id: n._id }));
+        setNotifications(mapped);
+      }
+    } catch (err) {
+      console.error('Fetch Notifications Error:', err.message);
+    }
+  };
+
+  const markNotificationAsRead = async (id) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error('Mark Read Error:', err.message);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setNotifications(notifications.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error('Mark All Read Error:', err.message);
+    }
+  };
+
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   useEffect(() => {
     // 1. Check existing login & persistent session
@@ -92,7 +133,7 @@ function App() {
 
         <Route path="/dashboard" element={
           user ? (
-            <MainLayout user={user} onLogout={onLogout}>
+            <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
               <Dashboard user={user} onLogout={onLogout} />
             </MainLayout>
           ) : <Navigate to="/login" />
@@ -100,7 +141,7 @@ function App() {
 
         <Route path="/profile" element={
           user ? (
-            <MainLayout user={user} onLogout={onLogout}>
+            <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
               <Profile user={user} />
             </MainLayout>
           ) : <Navigate to="/login" />
@@ -121,38 +162,43 @@ function App() {
         <Route path="/exam/:id" element={user ? <ExamViewer /> : <Navigate to="/login" />} />
 
         <Route path="/classroom-management" element={user ?
-          <MainLayout user={user} onLogout={onLogout}>
+          <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
             <ClassroomManagement user={user} />
           </MainLayout>
           : <Navigate to="/login" />} />
-        <Route path="/exam-management" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/exam-management" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <ExamManagement user={user} />
         </MainLayout> : <Navigate to="/login" />} />
 
-        <Route path="/document-management" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/document-management" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <DocumentManagement user={user} />
         </MainLayout> : <Navigate to="/login" />} />
 
-        <Route path="/notifications" element={user ? <MainLayout user={user} onLogout={onLogout}>
-          <Notification user={user} />
+        <Route path="/notifications" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
+          <Notification 
+            user={user} 
+            notifications={notifications} 
+            markAsRead={markNotificationAsRead}
+            markAllAsRead={markAllNotificationsAsRead}
+          />
         </MainLayout> : <Navigate to="/login" />} />
 
         {/* Admin Routes */}
-        <Route path="/admin/users" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/admin/users" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <UserManagement />
         </MainLayout> : <Navigate to="/login" />} />
 
-        <Route path="/admin/categories" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/admin/categories" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <CategoryManagement />
         </MainLayout> : <Navigate to="/login" />} />
 
         {/* Student Routes */}
         <Route path="/virtual-classroom/:id" element={user ? <VirtualClassroom /> : <Navigate to="/login" />} />
-        <Route path="/learning-center" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/learning-center" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <LearningCenter />
         </MainLayout> : <Navigate to="/login" />} />
 
-        <Route path="/exams" element={user ? <MainLayout user={user} onLogout={onLogout}>
+        <Route path="/exams" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
           <ExamList />
         </MainLayout> : <Navigate to="/login" />} />
 

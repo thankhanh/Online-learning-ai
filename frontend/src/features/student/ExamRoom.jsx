@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Modal, Form } from 'react-bootstrap';
-import { io } from 'socket.io-client';
 import api from '../../utils/api';
-
-const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
+import socket from '../../utils/socket';
 
 export default function ExamRoom() {
     const { id: examId } = useParams();
@@ -17,6 +15,7 @@ export default function ExamRoom() {
     const [violations, setViolations] = useState(0);
     const [maxViolations, setMaxViolations] = useState(3);
     const [showWarning, setShowWarning] = useState(false);
+    const [showAutoSubmitModal, setShowAutoSubmitModal] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -58,15 +57,31 @@ export default function ExamRoom() {
         socket.emit('join-exam', { examId, userId: user.id || user._id });
 
         socket.on('violation-update', (data) => {
+            console.log('Violation update from server:', data);
             setViolations(data.totalViolations);
+            
+            // If already at or over limit, show the auto-submit modal immediately
+            if (data.totalViolations >= data.maxViolations) {
+                setShowAutoSubmitModal(true);
+            }
         });
 
         socket.on('auto-submit-triggered', (data) => {
-            alert(data.message);
-            handleSubmit(true);
+            console.log('AUTO-SUBMIT triggered:', data);
+            setShowWarning(false);
+            setShowAutoSubmitModal(true);
+            // We still need to record the submission on the server immediately
+            // but we'll handle the UI navigation differently
+            api.post(`/exams/${examId}/submit`, {
+                answers: Object.entries(answers).map(([qId, selectedOption]) => ({
+                    questionId: qId, selectedOption
+                })),
+                isAuto: true
+            }).catch(console.error);
         });
 
         const handleViolation = (type) => {
+            console.log('Sending violation:', type, { examId, userId: user.id || user._id });
             socket.emit('violation', { type, examId, userId: user.id || user._id });
             setShowWarning(true);
         };
@@ -77,12 +92,48 @@ export default function ExamRoom() {
 
         const handleBlur = () => handleViolation('window-blur');
 
+        // Block Context Menu (Right-click)
+        const handleContextMenu = (e) => {
+            e.preventDefault();
+            handleViolation('right-click-block');
+        };
+
+        // Block Copy/Cut/Paste
+        const handleCopyPaste = (e) => {
+            e.preventDefault();
+            handleViolation('copy-paste-block');
+        };
+
+        // Block Keyboard Shortcuts (F12, Ctrl+Shift+I, etc.)
+        const handleKeyDown = (e) => {
+            // F12
+            if (e.keyCode === 123) {
+                e.preventDefault();
+                handleViolation('f12-block');
+            }
+            // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C / Ctrl+U
+            if (e.ctrlKey && (e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase()) || e.key.toUpperCase() === 'U')) {
+                e.preventDefault();
+                handleViolation('inspect-block');
+            }
+        };
+
         window.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('blur', handleBlur);
+        window.addEventListener('contextmenu', handleContextMenu);
+        window.addEventListener('copy', handleCopyPaste);
+        window.addEventListener('cut', handleCopyPaste);
+        window.addEventListener('paste', handleCopyPaste);
+        window.addEventListener('keydown', handleKeyDown);
 
         return () => {
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleBlur);
+            window.removeEventListener('contextmenu', handleContextMenu);
+            window.removeEventListener('copy', handleCopyPaste);
+            window.removeEventListener('cut', handleCopyPaste);
+            window.removeEventListener('paste', handleCopyPaste);
+            window.removeEventListener('keydown', handleKeyDown);
             socket.off('violation-update');
             socket.off('auto-submit-triggered');
         };
@@ -112,8 +163,10 @@ export default function ExamRoom() {
             const res = await api.post(`/exams/${examId}/submit`, submission);
             if (res.data.success) {
                 if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
-                alert(`Nộp bài thành công! Điểm của bạn: ${res.data.score}/${res.data.maxScore}`);
-                navigate('/exams');
+                if (!isAuto) {
+                    alert(`Nộp bài thành công! Điểm của bạn: ${res.data.score}/10 (${res.data.correctCount}/${res.data.totalQuestions} câu đúng)`);
+                    navigate('/exams');
+                }
             }
         } catch (err) {
             console.error('Submission error:', err);
@@ -191,6 +244,19 @@ export default function ExamRoom() {
                 <Modal.Footer className="justify-content-center border-0">
                     <Button variant="danger" onClick={() => setShowWarning(false)}>Quay lại bài thi</Button>
                 </Modal.Footer>
+            </Modal>
+
+            <Modal show={showAutoSubmitModal} onHide={() => {}} centered backdrop="static" keyboard={false}>
+                <Modal.Header className="bg-danger text-white border-0">
+                    <Modal.Title>TỰ ĐỘNG THU BÀI</Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="text-center p-4">
+                    <h5 className="text-danger mb-3">Bạn đã vi phạm quy chế thi quá {maxViolations} lần!</h5>
+                    <p>Hệ thống đã tự động nộp bài và kết thúc phiên thi của bạn.</p>
+                    <Button variant="danger" className="mt-3 w-100" onClick={() => navigate('/exams')}>
+                        Quay lại Danh sách Đề thi
+                    </Button>
+                </Modal.Body>
             </Modal>
         </div>
     );

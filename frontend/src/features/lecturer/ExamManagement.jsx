@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, Modal } from 'react-bootstrap';
 import api from '../../utils/api';
+import socket from '../../utils/socket';
 
 export default function ExamManagement({ user }) {
     const [key, setKey] = useState('overview');
     const [exams, setExams] = useState([]);
     const [classrooms, setClassrooms] = useState([]);
-    const [integrityLogs, setIntegrityLogs] = useState([]);
+    const [monitoringExams, setMonitoringExams] = useState({}); // { examId: [violations] }
+    const [selectedMonitorExam, setSelectedMonitorExam] = useState('');
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [newExam, setNewExam] = useState({
         title: '',
         classroom: '',
@@ -16,6 +20,65 @@ export default function ExamManagement({ user }) {
         maxViolations: 3,
         questions: [{ questionText: '', options: ['', '', '', ''], correctAnswer: '', type: 'multiple-choice' }]
     });
+
+    useEffect(() => {
+        const onConnect = () => console.log('MONITOR SOCKET CONNECTED:', socket.id);
+        const onDisconnect = () => console.log('MONITOR SOCKET DISCONNECTED');
+
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+
+        socket.on('student-violation', (data) => {
+            console.log('LECTURER RECEIVED VIOLATION:', data);
+            setMonitoringExams(prev => {
+                const current = prev[data.examId] || [];
+                // Update student if exists, otherwise prepend
+                const existingIdx = current.findIndex(v => v.userId === data.userId);
+                let newList;
+                if (existingIdx !== -1) {
+                    newList = [...current];
+                    newList[existingIdx] = { ...data, timestamp: new Date() };
+                } else {
+                    newList = [data, ...current];
+                }
+                return { ...prev, [data.examId]: newList.slice(0, 50) };
+            });
+        });
+
+        socket.on('initial-monitor-data', ({ examId, data }) => {
+            console.log('Received initial monitor data:', data);
+            setMonitoringExams(prev => ({ ...prev, [examId]: data }));
+        });
+
+        socket.on('student-violation-reset', ({ userId }) => {
+            setMonitoringExams(prev => {
+                const updated = { ...prev };
+                for (let eId in updated) {
+                    updated[eId] = updated[eId].filter(v => v.userId !== userId);
+                }
+                return updated;
+            });
+        });
+
+        return () => {
+            socket.off('connect', onConnect);
+            socket.off('disconnect', onDisconnect);
+            socket.off('student-violation');
+            socket.off('initial-monitor-data');
+            socket.off('student-violation-reset');
+        };
+    }, []);
+
+    const handleJoinMonitor = (examId) => {
+        setSelectedMonitorExam(examId);
+        socket.emit('join-exam-monitor', { examId });
+    };
+
+    const handleResetViolation = (userId) => {
+        if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử vi phạm của sinh viên này để thử nghiệm lại không?')) {
+            socket.emit('reset-student-violation', { examId: selectedMonitorExam, userId });
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -46,13 +109,48 @@ export default function ExamManagement({ user }) {
     const handleCreateExam = async (e) => {
         e.preventDefault();
         try {
-            const res = await api.post('/exams', newExam);
-            if (res.data.success) {
-                setExams([...exams, res.data.exam]);
-                setShowCreateModal(false);
+            if (isEditing) {
+                const res = await api.put(`/exams/${editingId}`, newExam);
+                if (res.data.success) {
+                    setExams(exams.map(ex => ex._id === editingId ? res.data.exam : ex));
+                    setShowCreateModal(false);
+                    setIsEditing(false);
+                    setEditingId(null);
+                }
+            } else {
+                const res = await api.post('/exams', newExam);
+                if (res.data.success) {
+                    setExams([...exams, res.data.exam]);
+                    setShowCreateModal(false);
+                }
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to create exam');
+            alert(err.response?.data?.message || 'Failed to save exam');
+        }
+    };
+
+    const handleEditClick = (exam) => {
+        setIsEditing(true);
+        setEditingId(exam._id);
+        setNewExam({
+            title: exam.title,
+            classroom: exam.classroom?._id || exam.classroom,
+            duration: exam.duration,
+            maxViolations: exam.maxViolations,
+            questions: exam.questions.map(q => ({ ...q }))
+        });
+        setShowCreateModal(true);
+    };
+
+    const handleDeleteExam = async (id) => {
+        if (!window.confirm('Bạn có chắc chắn muốn xóa đề thi này không?')) return;
+        try {
+            const res = await api.delete(`/exams/${id}`);
+            if (res.data.success) {
+                setExams(exams.filter(ex => ex._id !== id));
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to delete exam');
         }
     };
 
@@ -106,8 +204,8 @@ export default function ExamManagement({ user }) {
                                         <td>{exam.classroom?.name}</td>
                                         <td>{exam.duration} phút</td>
                                         <td>
-                                            <Button variant="outline-info" size="sm" className="me-2">Sửa</Button>
-                                            <Button variant="outline-danger" size="sm">Xóa</Button>
+                                            <Button variant="outline-info" size="sm" className="me-2" onClick={() => handleEditClick(exam)}>Sửa</Button>
+                                            <Button variant="outline-danger" size="sm" onClick={() => handleDeleteExam(exam._id)}>Xóa</Button>
                                         </td>
                                     </tr>
                                 ))}
@@ -115,12 +213,104 @@ export default function ExamManagement({ user }) {
                         </Table>
                     </Card>
                 </Tab>
+                <Tab eventKey="monitoring" title="📡 Giám sát Trực tiếp">
+                    <div className="p-3 bg-dark border border-secondary rounded">
+                        <Row className="mb-4 align-items-end">
+                            <Col md={4}>
+                                <Form.Label className="text-white">Chọn kỳ thi để giám sát:</Form.Label>
+                                <Form.Select 
+                                    className="bg-secondary text-white border-0"
+                                    value={selectedMonitorExam}
+                                    onChange={(e) => handleJoinMonitor(e.target.value)}
+                                >
+                                    <option value="">Chọn đề thi...</option>
+                                    {exams.map(e => <option key={e._id} value={e._id}>{e.title}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={8}>
+                                {selectedMonitorExam && (
+                                    <>
+                                        <Badge bg="danger" className="p-2 pulse-animation me-2">
+                                            <i className="bi bi-broadcast me-2"></i> Đang giám sát trực tiếp...
+                                        </Badge>
+                                        <Badge bg={socket.connected ? "success" : "secondary"} className="p-2 me-2">
+                                            Socket: {socket.connected ? "Kết nối" : "Ngắt kết nối"}
+                                        </Badge>
+                                        <Button variant="outline-dark" size="sm" onClick={() => handleJoinMonitor(selectedMonitorExam)}>
+                                            <i className="bi bi-arrow-clockwise me-1"></i> Làm mới
+                                        </Button>
+                                    </>
+                                )}
+                            </Col>
+                        </Row>
+
+                        {!selectedMonitorExam ? (
+                            <div className="text-center py-5 text-muted">Vui lòng chọn một kỳ thi để bắt đầu giám sát học viên.</div>
+                        ) : (
+                            <Table hover variant="dark" className="align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Sinh viên</th>
+                                        <th>Loại vi phạm</th>
+                                        <th>Tổng số lần</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(monitoringExams[selectedMonitorExam] || []).length === 0 ? (
+                                        <tr>
+                                            <td colSpan="6" className="text-center py-4 text-muted">Chưa phát hiện vi phạm nào trong phiên này.</td>
+                                        </tr>
+                                    ) : (
+                                        monitoringExams[selectedMonitorExam].map((v, i) => (
+                                            <tr key={v.userId || i} className="animate__animated animate__fadeInDown border-bottom border-secondary">
+                                                <td className="text-muted small">{new Date(v.timestamp).toLocaleTimeString()}</td>
+                                                <td>
+                                                    <div className="fw-bold text-white">{v.username}</div>
+                                                    <div className="text-muted" style={{ fontSize: '0.75rem' }}>{v.email}</div>
+                                                </td>
+                                                <td>
+                                                    <Badge bg={v.isPostSubmission ? "danger" : "warning"} text={v.isPostSubmission ? "white" : "dark"}>
+                                                        {v.type}
+                                                    </Badge>
+                                                </td>
+                                                <td className="text-center">
+                                                    <span className={`fs-5 fw-bold ${v.totalViolations >= 3 ? 'text-danger' : 'text-primary'}`}>
+                                                        {v.totalViolations}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {v.totalViolations >= 3 || v.status === 'Đã đình chỉ' ? 
+                                                        <Badge bg="danger" className="px-3 py-2">ĐÃ ĐÌNH CHỈ</Badge> : 
+                                                        <Badge bg="success" className="px-3 py-2 text-dark">ĐANG THI</Badge>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <Button 
+                                                        variant="outline-primary" 
+                                                        size="sm" 
+                                                        onClick={() => handleResetViolation(v.userId)}
+                                                        title="Xóa dữ liệu vi phạm của sinh viên này để test lại"
+                                                    >
+                                                        <i className="bi bi-arrow-counterclockwise"></i> Reset (Test)
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </Table>
+                        )}
+                    </div>
+                </Tab>
             </Tabs>
 
             {/* Modal Tạo Đề Thi */}
-            <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} size="lg" centered contentClassName="bg-dark text-white border-secondary">
+            <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setIsEditing(false); }} size="lg" centered contentClassName="bg-dark text-white border-secondary">
                 <Modal.Header closeButton closeVariant="white" className="border-secondary">
-                    <Modal.Title>Tạo Đề Thi Mới</Modal.Title>
+                    <Modal.Title>{isEditing ? 'Chỉnh sửa Đề thi' : 'Tạo Đề Thi Mới'}</Modal.Title>
                 </Modal.Header>
                 <Form onSubmit={handleCreateExam}>
                     <Modal.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>

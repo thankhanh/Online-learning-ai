@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const Navbar = ({ user, onLogout }) => {
+const Navbar = ({ user, onLogout, unreadCount }) => {
     return (
         <nav className="navbar navbar-expand navbar-dark bg-dark border-bottom px-3 d-flex justify-content-between p-2">
             <div className="navbar-brand">
@@ -12,9 +12,11 @@ const Navbar = ({ user, onLogout }) => {
                     <>
                         <Link to="/notifications" className="text-light me-3 position-relative">
                             <i className="bi bi-bell-fill fs-5"></i>
-                            <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.6rem' }}>
-                                3
-                            </span>
+                            {unreadCount > 0 && (
+                                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.6rem' }}>
+                                    {unreadCount}
+                                </span>
+                            )}
                         </Link>
                         <span className="text-light me-2">Hi, {user.displayName || user.name}</span>
                         <Link to="/dashboard" className="text-light text-decoration-none">Dashboard</Link>
