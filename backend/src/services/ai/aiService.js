@@ -1,6 +1,8 @@
-const { Ollama } = require('@langchain/ollama');
-const ragPipeline = require('./ragPipeline');
-const fs = require('fs').promises;
+const { Ollama } = require('@langchain/community/llms/ollama');
+const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
+const { MemoryVectorStore } = require('langchain/vectorstores/memory');
+const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama');
 
 class AIService {
     constructor() {
@@ -8,43 +10,22 @@ class AIService {
             baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
             model: 'qwen2.5:1.5b',
         });
+        this.embeddings = new OllamaEmbeddings({
+            baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+            model: 'nomic-embed-text',
+        });
+        this.vectorStore = null;
     }
 
-    async processDocument(filePath, metadata = {}) {
-        try {
-            // Decode URI component to handle %20 and other encoded characters
-            const decodedPath = decodeURIComponent(filePath);
-            const fileBuffer = await fs.readFile(decodedPath);
-            const isPdf = decodedPath.toLowerCase().endsWith('.pdf');
-            return await ragPipeline.ingestDocument(fileBuffer, metadata, isPdf);
-        } catch (error) {
-            console.error("Error processing document:", error);
-            throw error;
-        }
+    async processDocument(filePath) {
+        // Logic for loading PDF, splitting text, and embedding
+        // To be implemented by AI Engineer
     }
 
-    async askQuestion(question, filter = {}) {
-        try {
-            const context = await ragPipeline.retrieveContext(question, filter);
-
-            const prompt = `Bạn là một trợ lý học tập thông minh. 
-Sử dụng ngữ cảnh dưới đây để trả lời câu hỏi của người dùng. 
-Nếu không có ngữ cảnh hoặc ngữ cảnh không đủ thông tin, hãy trả lời dựa trên kiến thức của bạn và ghi chú rõ điều đó.
-
-Ngữ cảnh:
-${context}
-
-Câu hỏi: ${question}
-Trả lời:`;
-
-            const response = await this.model.invoke(prompt);
-            return response;
-        } catch (error) {
-            console.error("Error asking question:", error);
-            throw error;
-        }
+    async askQuestion(question) {
+        // Logic for retrieval and generation
+        // To be implemented by AI Engineer
     }
 }
 
 module.exports = new AIService();
-

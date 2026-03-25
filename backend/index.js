@@ -29,7 +29,6 @@ app.use(express.json());
 app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/classrooms', require('./src/routes/classroomRoutes'));
 app.use('/api/exams', require('./src/routes/examRoutes'));
-app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 app.get('/', (req, res) => {
     res.json({ message: "Online Learning AI Backend - Monolithic Modular is running!" });
@@ -38,7 +37,6 @@ app.get('/', (req, res) => {
 // Import Socket Handlers
 require('./src/socket/examSocket')(io);
 require('./src/socket/classroomSocket')(io);
-require('./src/socket/meetingSocket')(io);
 
 // Server Listen
 const PORT = process.env.PORT || 5000;
