@@ -20,7 +20,7 @@ const Sidebar = ({ user }) => {
                 )}
                 {user.role === 'student' && (
                     <>
-                        <li className="nav-item"><Link to="/my-courses" className="nav-link text-light">🎓 Khóa học</Link></li>
+                        <li className="nav-item"><Link to="/classroom-management" className="nav-link text-light">🎓 Khóa học</Link></li>
                         <li className="nav-item"><Link to="/schedule" className="nav-link text-light">📅 Lịch học</Link></li>
                         <li className="nav-item"><Link to="/learning-center" className="nav-link text-light">📚 Trung tâm học liệu & AI</Link></li>
                         <li className="nav-item"><Link to="/exams" className="nav-link text-light">📝 Trung tâm Khảo thí</Link></li>

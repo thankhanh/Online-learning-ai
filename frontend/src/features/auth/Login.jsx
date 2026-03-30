@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -19,7 +19,7 @@ const Login = ({ onLoginSuccess }) => {
     const onSubmit = async e => {
         e.preventDefault();
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', formData);
+            const res = await api.post('/auth/login', formData);
             localStorage.setItem('token', res.data.token);
             onLoginSuccess(res.data.user);
         } catch (err) {

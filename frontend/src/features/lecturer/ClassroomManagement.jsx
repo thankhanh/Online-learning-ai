@@ -1,73 +1,122 @@
-import React, { useState } from 'react';
-import { Card, Button, Badge, Row, Col, Table, Modal } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Badge, Row, Col, Table, Modal, Form } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import api from '../../utils/api';
 
-export default function ClassroomManagement() {
-    // Mock Data for Classes
-    const [classes] = useState([
-        { id: 1, name: 'Lớp AI Cơ bản - CS101', subject: 'Trí tuệ nhân tạo', students: 45, semester: 'HK1 2023-2024', status: 'active' },
-        { id: 2, name: 'Lớp Machine Learning - CS102', subject: 'Học máy', students: 38, semester: 'HK1 2023-2024', status: 'active' },
-        { id: 3, name: 'Lớp Deep Learning - CS103', subject: 'Học sâu', students: 30, semester: 'HK1 2023-2024', status: 'upcoming' },
-        { id: 4, name: 'Lớp Computer Vision - CS104', subject: 'Thị giác máy tính', students: 40, semester: 'HK1 2023-2024', status: 'finished' },
-    ]);
-
-    // Mock Data for Students (Simplified for demo)
-    const [students, setStudents] = useState([
-        { id: 1, name: 'Nguyễn Văn An', studentId: 'SV001', status: 'online', mic: true, cam: true },
-        { id: 2, name: 'Trần Thị Bình', studentId: 'SV002', status: 'online', mic: false, cam: true },
-        { id: 3, name: 'Lê Hoàng Cường', studentId: 'SV003', status: 'offline', mic: false, cam: false },
-        { id: 4, name: 'Phạm Minh Duy', studentId: 'SV004', status: 'online', mic: true, cam: false },
-        { id: 5, name: 'Hoàng Thị Ban', studentId: 'SV005', status: 'online', mic: false, cam: false },
-    ]);
-
+export default function ClassroomManagement({ user }) {
+    const [classes, setClasses] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [selectedClass, setSelectedClass] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [newClass, setNewClass] = useState({ name: '', description: '' });
+    const [joinCode, setJoinCode] = useState('');
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        fetchClasses();
+    }, []);
+
+    const fetchClasses = async () => {
+        try {
+            const res = await api.get('/classrooms');
+            if (res.data.success) {
+                setClasses(res.data.classrooms);
+            }
+        } catch (err) {
+            console.error('Error fetching classes:', err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateClass = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await api.post('/classrooms', newClass);
+            if (res.data.success) {
+                setClasses([...classes, res.data.classroom]);
+                setShowCreateModal(false);
+                setNewClass({ name: '', description: '' });
+                alert('Tạo lớp học thành công!');
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Không thể tạo lớp học.');
+        }
+    };
+
+    const handleJoinClass = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await api.post('/classrooms/join', { code: joinCode });
+            if (res.data.success) {
+                setClasses([...classes, res.data.classroom]);
+                setShowJoinModal(false);
+                setJoinCode('');
+                alert('Tham gia lớp học thành công!');
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Không thể tham gia lớp học. Vui lòng kiểm tra mã code.');
+        }
+    };
 
     const handleClassClick = (cls) => {
         setSelectedClass(cls);
         setShowModal(true);
     };
 
-    const toggleMic = (id) => {
-        setStudents(students.map(s => s.id === id ? { ...s, mic: !s.mic } : s));
-    };
-
-    const toggleCam = (id) => {
-        setStudents(students.map(s => s.id === id ? { ...s, cam: !s.cam } : s));
-    };
-
-    const toggleAllMic = (state) => {
-        setStudents(students.map(s => ({ ...s, mic: state })));
-    };
-
-    const toggleAllCam = (state) => {
-        setStudents(students.map(s => ({ ...s, cam: state })));
-    };
+    if (loading) return <div className="text-center mt-5 text-white">Đang tải dữ liệu...</div>;
 
     return (
         <div className="container-fluid p-4">
-            <h2 className="mb-4 text-white">🏫 Quản lý Lớp học</h2>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2 className="text-white m-0">🏫 Quản lý Lớp học</h2>
+                {user?.role === 'lecturer' ? (
+                    <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                        <i className="bi bi-plus-lg me-2"></i>Tạo lớp mới
+                    </Button>
+                ) : (
+                    <Button variant="success" onClick={() => setShowJoinModal(true)}>
+                        <i className="bi bi-door-open me-2"></i>Tham gia lớp học
+                    </Button>
+                )}
+            </div>
 
             <Row>
-                {classes.map(cls => (
-                    <Col md={4} key={cls.id} className="mb-4">
+                {classes.length === 0 ? (
+                    <Col className="text-center text-muted py-5">
+                        <h5>Chưa có lớp học nào.</h5>
+                    </Col>
+                ) : classes.map(cls => (
+                    <Col md={4} key={cls._id} className="mb-4">
                         <Card className="h-100 shadow-sm bg-dark text-white border-secondary card-hover" role="button" onClick={() => handleClassClick(cls)}>
                             <Card.Body>
                                 <div className="d-flex justify-content-between align-items-start mb-2">
-                                    <Badge bg={cls.status === 'active' ? 'success' : cls.status === 'upcoming' ? 'info' : 'secondary'}>
-                                        {cls.status === 'active' ? 'Đang diễn ra' : cls.status === 'upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'}
-                                    </Badge>
-                                    <small className="text-muted text-light">{cls.semester}</small>
+                                    <Badge bg="success">Đang diễn ra</Badge>
+                                    <small className="text-info fw-bold">CODE: {cls.code}</small>
                                 </div>
                                 <Card.Title>{cls.name}</Card.Title>
-                                <Card.Subtitle className="mb-3 text-muted">{cls.subject}</Card.Subtitle>
-                                <div className="d-flex align-items-center text-light">
-                                    <i className="bi bi-people-fill me-2"></i>
-                                    {cls.students} Sinh viên
+                                <Card.Text className="text-muted small">{cls.description}</Card.Text>
+                                <div className="d-flex align-items-center text-light mt-3">
+                                    <i className="bi bi-people-fill me-2 text-primary"></i>
+                                    {cls.students?.length || 0} Sinh viên
                                 </div>
                             </Card.Body>
-                            <Card.Footer className="bg-transparent border-secondary text-end">
-                                <Button variant="outline-primary" size="sm" onClick={(e) => { e.stopPropagation(); handleClassClick(cls); }}>
+                            <Card.Footer className="bg-transparent border-secondary d-flex justify-content-between">
+                                <Button variant="outline-primary" size="sm">
                                     Xem chi tiết <i className="bi bi-arrow-right"></i>
+                                </Button>
+                                <Button 
+                                    variant={user?.role === 'lecturer' ? "success" : "primary"} 
+                                    size="sm" 
+                                    className="px-3"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/virtual-classroom/${cls._id}`);
+                                    }}
+                                >
+                                    {user?.role === 'lecturer' ? 'Vào dạy' : 'Vào học'} <i className="bi bi-broadcast ms-1"></i>
                                 </Button>
                             </Card.Footer>
                         </Card>
@@ -75,82 +124,92 @@ export default function ClassroomManagement() {
                 ))}
             </Row>
 
+            {/* Modal Tạo lớp học */}
+            <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered contentClassName="bg-dark text-white border-secondary">
+                <Modal.Header closeButton closeVariant="white" className="border-secondary">
+                    <Modal.Title>Tạo lớp học mới</Modal.Title>
+                </Modal.Header>
+                <Form onSubmit={handleCreateClass}>
+                    <Modal.Body>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Tên lớp học</Form.Label>
+                            <Form.Control
+                                type="text"
+                                required
+                                className="bg-secondary text-white border-0"
+                                value={newClass.name}
+                                onChange={e => setNewClass({ ...newClass, name: e.target.value })}
+                            />
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Mô tả</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                className="bg-secondary text-white border-0"
+                                value={newClass.description}
+                                onChange={e => setNewClass({ ...newClass, description: e.target.value })}
+                            />
+                        </Form.Group>
+                    </Modal.Body>
+                    <Modal.Footer className="border-secondary">
+                        <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Hủy</Button>
+                        <Button variant="primary" type="submit">Xác nhận tạo</Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
+
+            {/* Modal Tham gia lớp học */}
+            <Modal show={showJoinModal} onHide={() => setShowJoinModal(false)} centered contentClassName="bg-dark text-white border-secondary">
+                <Modal.Header closeButton closeVariant="white" className="border-secondary">
+                    <Modal.Title>Tham gia lớp học</Modal.Title>
+                </Modal.Header>
+                <Form onSubmit={handleJoinClass}>
+                    <Modal.Body>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Nhập mã lớp học (6 ký tự)</Form.Label>
+                            <Form.Control
+                                type="text"
+                                required
+                                className="bg-secondary text-white border-0 text-center fs-4 fw-bold"
+                                placeholder="VD: ABC123"
+                                value={joinCode}
+                                onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                                maxLength={6}
+                            />
+                        </Form.Group>
+                    </Modal.Body>
+                    <Modal.Footer className="border-secondary">
+                        <Button variant="secondary" onClick={() => setShowJoinModal(false)}>Hủy</Button>
+                        <Button variant="success" type="submit">Tham gia ngay</Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
+
             {/* Modal Danh sách sinh viên */}
             <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" centered contentClassName="bg-dark text-white border-secondary">
                 <Modal.Header closeButton closeVariant="white" className="border-secondary">
                     <Modal.Title>Danh sách sinh viên - {selectedClass?.name}</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h5 className="m-0">Điều khiển nhanh</h5>
-                        <div>
-                            <Button variant="outline-danger" size="sm" className="me-2" onClick={() => toggleAllCam(false)}>
-                                <i className="bi bi-camera-video-off"></i> Tắt hết Cam
-                            </Button>
-                            <Button variant="outline-warning" size="sm" className="me-2" onClick={() => toggleAllMic(false)}>
-                                <i className="bi bi-mic-mute"></i> Tắt hết Mic
-                            </Button>
-                            <Button variant="outline-success" size="sm" onClick={() => toggleAllMic(true)}>
-                                <i className="bi bi-mic"></i> Bật hết Mic
-                            </Button>
-                        </div>
-                    </div>
-
                     <Table hover variant="dark" className="align-middle">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>MSSV</th>
                                 <th>Họ tên</th>
-                                <th>Trạng thái</th>
-                                <th className="text-center">Mic</th>
-                                <th className="text-center">Camera</th>
+                                <th>Email</th>
                                 <th className="text-end">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {students.map((student, index) => (
-                                <tr key={student.id}>
+                            {selectedClass?.students?.map((student, index) => (
+                                <tr key={student._id}>
                                     <td>{index + 1}</td>
-                                    <td>{student.studentId}</td>
-                                    <td>
-                                        <div className="d-flex align-items-center">
-                                            <div className="rounded-circle bg-secondary d-flex justify-content-center align-items-center me-2" style={{ width: '30px', height: '30px' }}>
-                                                {student.name.charAt(0)}
-                                            </div>
-                                            {student.name}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {student.status === 'online' ? (
-                                            <Badge bg="success">Online</Badge>
-                                        ) : (
-                                            <Badge bg="secondary">Offline</Badge>
-                                        )}
-                                    </td>
-                                    <td className="text-center">
-                                        <i className={`bi ${student.mic ? 'bi-mic-fill text-success' : 'bi-mic-mute-fill text-danger'}`} style={{ fontSize: '1.2rem' }}></i>
-                                    </td>
-                                    <td className="text-center">
-                                        <i className={`bi ${student.cam ? 'bi-camera-video-fill text-success' : 'bi-camera-video-off-fill text-danger'}`} style={{ fontSize: '1.2rem' }}></i>
-                                    </td>
+                                    <td>{student.name}</td>
+                                    <td>{student.email}</td>
                                     <td className="text-end">
-                                        <Button
-                                            variant={student.mic ? "outline-warning" : "outline-success"}
-                                            size="sm"
-                                            className="me-2"
-                                            onClick={() => toggleMic(student.id)}
-                                            disabled={student.status === 'offline'}
-                                        >
-                                            <i className={`bi ${student.mic ? 'bi-mic-mute' : 'bi-mic'}`}></i>
-                                        </Button>
-                                        <Button
-                                            variant={student.cam ? "outline-danger" : "outline-primary"}
-                                            size="sm"
-                                            onClick={() => toggleCam(student.id)}
-                                            disabled={student.status === 'offline'}
-                                        >
-                                            <i className={`bi ${student.cam ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+                                        <Button variant="outline-danger" size="sm">
+                                            <i className="bi bi-person-x"></i> Gỡ khỏi lớp
                                         </Button>
                                     </td>
                                 </tr>
@@ -158,11 +217,6 @@ export default function ClassroomManagement() {
                         </tbody>
                     </Table>
                 </Modal.Body>
-                <Modal.Footer className="border-secondary">
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>
-                        Đóng
-                    </Button>
-                </Modal.Footer>
             </Modal>
         </div>
     );

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Register = ({ onLoginSuccess }) => {
@@ -19,7 +19,7 @@ const Register = ({ onLoginSuccess }) => {
     const onSubmit = async e => {
         e.preventDefault();
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+            const res = await api.post('/auth/register', formData);
             // Auto login on successful register
             localStorage.setItem('token', res.data.token);
             if (onLoginSuccess) {

@@ -9,6 +9,7 @@ import { Button, Form, InputGroup, Badge } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import { useMeeting } from '../../hooks/useMeeting';
 import { useParams, useNavigate } from 'react-router-dom';
+import api from '../../utils/api';
 
 // Kết nối tới namespace /meeting
 const meetingSocket = io('http://localhost:5000/meeting', { autoConnect: false });
@@ -135,6 +136,9 @@ export default function VirtualClassroom() {
     ]);
     const [inputValue, setInputValue] = useState('');
     const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'people'
+    const [isAiTyping, setIsAiTyping] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState('');
     const chatEndRef = useRef(null);
 
     // ── Screen Share Ref ──────────────────────────────────────────────────────
@@ -272,25 +276,62 @@ export default function VirtualClassroom() {
         navigate('/dashboard');
     }, [localStream, screenStream, navigate]);
 
-    const handleSendMessage = () => {
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setIsUploading(true);
+        setUploadStatus('Đang tải tài liệu...');
+        try {
+            const res = await api.post('/ai/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (res.data.success) {
+                setUploadStatus(`Thành công! Đã nạp ${res.data.chunks} đoạn kiến thức.`);
+                setAiMessages(prev => [...prev, {
+                    id: Date.now(),
+                    sender: 'Hệ thống',
+                    text: `Giảng viên vừa cập nhật tài liệu lớp học (${file.name}). Giờ bạn có thể hỏi AI về nội dung này!`,
+                    isAi: true
+                }]);
+            }
+        } catch (error) {
+            setUploadStatus('Lỗi tải tài liệu.');
+            console.error(error);
+        } finally {
+            setIsUploading(false);
+            setTimeout(() => setUploadStatus(''), 5000);
+        }
+    };
+
+    const handleSendMessage = async () => {
         if (!inputValue.trim()) return;
         if (chatMode === 'class') {
             const msg = { sender: userInfo.name, text: inputValue };
             meetingSocket.emit('chat-message', { roomId, ...msg });
             setMessages((prev) => [...prev, { ...msg, id: Date.now(), isMine: true }]);
+            setInputValue('');
         } else {
-            setAiMessages((prev) => [...prev, { id: Date.now(), sender: 'Me', text: inputValue, isAi: false }]);
-            setTimeout(() => {
-                setAiMessages((prev) => [...prev, {
-                    id: Date.now() + 1,
-                    sender: 'AI Tutor',
-                    text: `Trả lời về "${inputValue}": Đây là câu hỏi thú vị! Dựa trên tài liệu lớp học, mạng nơ-ron nhân tạo (ANN) mô phỏng hoạt động của não người...`,
-                    source: 'Chuong_2_ML_Co_ban.pdf (Trang 12)',
-                    isAi: true,
-                }]);
-            }, 1200);
+            const question = inputValue;
+            setAiMessages((prev) => [...prev, { id: Date.now(), sender: 'Me', text: question, isAi: false }]);
+            setInputValue('');
+            setIsAiTyping(true);
+            try {
+                const res = await api.post('/ai/ask', { question });
+                if (res.data.success) {
+                    setAiMessages(prev => [...prev, { id: Date.now(), sender: 'AI Tutor', text: res.data.answer, isAi: true }]);
+                } else {
+                    setAiMessages(prev => [...prev, { id: Date.now(), sender: 'Hệ thống', text: 'Lỗi: Không thể nhận câu trả lời từ AI.', isAi: true, error: true }]);
+                }
+            } catch (error) {
+                setAiMessages(prev => [...prev, { id: Date.now(), sender: 'Hệ thống', text: 'Lỗi kết nối tới AI Tutor. ' + (error.response?.data?.message || ''), isAi: true, error: true }]);
+            } finally {
+                setIsAiTyping(false);
+            }
         }
-        setInputValue('');
     };
 
     // ── Grid Layout tính toán ─────────────────────────────────────────────────
@@ -542,6 +583,21 @@ export default function VirtualClassroom() {
                                     ))}
                                 </div>
 
+                                {/* Upload for AI (Teacher only) */}
+                                {chatMode === 'ai' && (userInfo.role === 'teacher' || userInfo.role === 'lecturer') && (
+                                    <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '4px' }}>Tải tài liệu Bài giảng cho AI:</div>
+                                        <input 
+                                            type="file" 
+                                            accept=".pdf" 
+                                            onChange={handleFileUpload}
+                                            disabled={isUploading}
+                                            style={{ color: '#fff', fontSize: '0.8rem', width: '100%' }}
+                                        />
+                                        {uploadStatus && <div style={{ fontSize: '0.75rem', color: '#4ade80', marginTop: '4px' }}>{uploadStatus}</div>}
+                                    </div>
+                                )}
+
                                 {/* Messages */}
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
                                     {chatMode === 'class' ? (
@@ -589,6 +645,11 @@ export default function VirtualClassroom() {
                                                 </div>
                                             </div>
                                         ))
+                                    )}
+                                    {chatMode === 'ai' && isAiTyping && (
+                                        <div style={{ padding: '8px 12px', color: '#a0aec0', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                                            AI đang tạo câu trả lời...
+                                        </div>
                                     )}
                                     <div ref={chatEndRef} />
                                 </div>

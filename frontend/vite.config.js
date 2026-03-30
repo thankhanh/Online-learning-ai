@@ -1,9 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills(),
+  ],
+  server: {
+    host: true,
+    port: 5173,
+  },
   optimizeDeps: {
     // simple-peer dùng CommonJS, cần pre-bundle để Vite xử lý đúng
     include: ['simple-peer'],
