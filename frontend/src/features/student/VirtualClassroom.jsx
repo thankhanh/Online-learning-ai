@@ -331,23 +331,23 @@ export default function VirtualClassroom() {
     }
 
     return (
-        <div className="virtual-classroom bg-black vh-100 text-white d-flex flex-column">
-            <div className="classroom-header p-2 bg-dark border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <div className="virtual-classroom bg-light vh-100 d-flex flex-column">
+            <div className="classroom-header p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center z-2">
                 <div className="d-flex align-items-center">
-                    <Button variant="outline-light" size="sm" className="me-3" onClick={() => navigate('/dashboard')}><i className="bi bi-arrow-left"></i> Thoát</Button>
-                    <h5 className="m-0">Lớp {classId}</h5>
+                    <Button variant="light" size="sm" className="me-3 fw-bold text-secondary shadow-sm" onClick={() => navigate('/dashboard')}><i className="bi bi-arrow-left"></i> Thoát</Button>
+                    <h5 className="m-0 fw-800 text-dark">Lớp {classId}</h5>
                 </div>
                 <div>
-                    <Badge bg="danger" className="me-2 animate-pulse">🔴 LIVE</Badge>
+                    <Badge bg="danger" className="me-2 animate-pulse px-3 py-2 rounded-pill shadow-sm">🔴 LIVE</Badge>
                 </div>
             </div>
 
             <div className="flex-grow-1 d-flex overflow-hidden">
                 <div className="flex-grow-1 p-3 d-flex flex-column" style={{ maxWidth: '75%' }}>
-                    <div className="flex-grow-1 bg-secondary rounded position-relative mb-3 d-flex align-items-center justify-content-center overflow-hidden">
+                    <div className="flex-grow-1 bg-dark rounded-4 position-relative mb-3 d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
                         {cameraError ? (
-                            <div className="text-center p-4 bg-dark rounded text-danger border border-danger shadow w-75 position-absolute z-3">
-                                <h5><i className="bi bi-exclamation-triangle"></i> Lỗi thiết bị</h5>
+                            <div className="text-center p-4 bg-white rounded-4 text-danger border border-danger shadow w-75 position-absolute z-3">
+                                <h5 className="fw-bold"><i className="bi bi-exclamation-triangle"></i> Lỗi thiết bị</h5>
                                 <p>{cameraError}</p>
                                 <small className="text-muted">Vui lòng cấp quyền Camera/Mic trên trình duyệt (hiển thị ổ khóa trên thanh URL) hoặc cắm camera và tải lại trang (F5).</small>
                             </div>
@@ -356,37 +356,37 @@ export default function VirtualClassroom() {
                         {pinnedPeerId && remoteStreams[pinnedPeerId] ? (
                             <VideoStream stream={remoteStreams[pinnedPeerId]} />
                         ) : (
-                            <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-black" />
+                            <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-dark" />
                         )}
 
 
-                        <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3 p-2 bg-dark rounded-pill bg-opacity-75 d-flex gap-3">
-                            <Button variant={isAudioOn ? "secondary" : "danger"} className="rounded-circle" onClick={toggleAudio}>
-                                <i className={`bi bi-mic${isAudioOn ? '' : '-mute'}`}></i>
+                        <div className="position-absolute bottom-0 start-50 translate-middle-x mb-4 p-2 bg-white rounded-pill shadow-lg d-flex gap-3 border">
+                            <Button variant={isAudioOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isAudioOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleAudio}>
+                                <i className={`bi bi-mic${isAudioOn ? '' : '-mute-fill'} fs-5`}></i>
                             </Button>
-                            <Button variant={isVideoOn ? "secondary" : "danger"} className="rounded-circle" onClick={toggleVideo}>
-                                <i className={`bi bi-camera-video${isVideoOn ? '' : '-off'}`}></i>
+                            <Button variant={isVideoOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isVideoOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleVideo}>
+                                <i className={`bi bi-camera-video${isVideoOn ? '' : '-off-fill'} fs-5`}></i>
                             </Button>
-                            <Button variant={isScreenSharing ? "primary" : "info"} className="rounded-circle" onClick={toggleScreenShare}>
-                                <i className="bi bi-display"></i>
+                            <Button variant={isScreenSharing ? "primary" : "light"} className={`rounded-circle shadow-sm ${isScreenSharing ? '' : 'text-primary'}`} style={{ width: '45px', height: '45px' }} onClick={toggleScreenShare}>
+                                <i className="bi bi-display fs-5"></i>
                             </Button>
-                            <Button variant="warning" className="rounded-circle" onClick={() => navigate('/dashboard')}>
-                                <i className="bi bi-telephone-x"></i>
+                            <Button variant="danger" className="rounded-circle shadow-sm" style={{ width: '45px', height: '45px' }} onClick={() => navigate('/dashboard')}>
+                                <i className="bi bi-telephone-x-fill fs-5"></i>
                             </Button>
                         </div>
-                        <div className="position-absolute top-0 start-0 m-2 p-1 bg-dark bg-opacity-75 rounded small d-flex align-items-center shadow-sm">
-                            <span className="fw-bold me-1">
+                        <div className="position-absolute top-0 start-0 m-3 p-2 bg-white bg-opacity-75 rounded-pill small d-flex align-items-center shadow-sm backdrop-blur">
+                            <span className="fw-800 me-2 text-dark">
                                 {pinnedPeerId && peers.find(p => p.peerID === pinnedPeerId) 
                                     ? peers.find(p => p.peerID === pinnedPeerId).username 
                                     : (currentUser.name || currentUser.username || 'Khách')}
                             </span>
-                            <Badge bg={pinnedPeerId ? "info" : (currentUser.role === 'lecturer' ? "danger" : "secondary")}>
+                            <Badge bg={pinnedPeerId ? "info" : (currentUser.role === 'lecturer' ? "danger" : "secondary")} className="rounded-pill">
                                 {pinnedPeerId 
                                     ? "Đã ghim" 
                                     : (currentUser.role === 'lecturer' ? 'Giảng viên' : 'Học viên') + " (Bạn)"}
                             </Badge>
                             {pinnedPeerId && (
-                                <Button variant="link" size="sm" className="text-white ms-2 p-0" onClick={() => setPinnedPeerId(null)}>
+                                <Button variant="link" size="sm" className="text-secondary ms-2 p-0 fw-bold" onClick={() => setPinnedPeerId(null)}>
                                     <i className="bi bi-pin-angle-fill"></i> Bỏ ghim
                                 </Button>
                             )}
@@ -394,68 +394,68 @@ export default function VirtualClassroom() {
                     </div>
 
 
-                    <div className="d-flex gap-2 overflow-auto" style={{ height: '150px' }}>
+                    <div className="d-flex gap-2 overflow-auto custom-scrollbar pb-2" style={{ height: '160px' }}>
                         {peers.map((peerObj) => (
-                            <div key={peerObj.peerID} className="bg-dark border border-secondary rounded overflow-hidden position-relative" style={{ minWidth: '200px', height: '100%' }}>
+                            <div key={peerObj.peerID} className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
                                 <VideoStream stream={remoteStreams[peerObj.peerID]} />
-                                <div className="position-absolute top-0 end-0 m-1">
-
+                                <div className="position-absolute top-0 end-0 m-2">
                                     <Button 
-                                        variant="dark" 
+                                        variant="light" 
                                         size="sm" 
-                                        className="bg-opacity-50 p-1" 
+                                        className="bg-white bg-opacity-75 p-1 rounded-circle shadow-sm" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         onClick={() => setPinnedPeerId(pinnedPeerId === peerObj.peerID ? null : peerObj.peerID)}
                                     >
-                                        <i className={`bi bi-pin-angle${pinnedPeerId === peerObj.peerID ? '-fill' : ''}`}></i>
+                                        <i className={`bi bi-pin-angle${pinnedPeerId === peerObj.peerID ? '-fill text-primary' : ' text-secondary'}`}></i>
                                     </Button>
                                 </div>
-                                <div className="position-absolute bottom-0 start-0 p-1 small bg-black bg-opacity-50 w-100">
+                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur">
                                     {peerObj.username}
                                 </div>
                             </div>
                         ))}
                         {/* Always show own video as thumbnail if someone else is pinned */}
                         {pinnedPeerId && (
-                            <div className="bg-dark border border-secondary rounded overflow-hidden position-relative" style={{ minWidth: '200px', height: '100%' }}>
-                                <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-black" />
-                                <div className="position-absolute bottom-0 start-0 p-1 small bg-black bg-opacity-50 w-100">
+                            <div className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
+                                <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-dark" />
+                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur">
                                     Bạn
                                 </div>
                             </div>
                         )}
 
                         {peers.length === 0 && (
-                            <div className="d-flex align-items-center justify-content-center w-100 text-muted h-100 border border-secondary border-dashed rounded">
-                                Chưa có thành viên nào khác tham gia
+                            <div className="d-flex flex-column align-items-center justify-content-center w-100 text-muted h-100 border border-secondary border-dashed border-opacity-25 rounded-4 bg-white">
+                                <i className="bi bi-people fs-2 mb-2 opacity-50"></i>
+                                <span className="fw-600 small">Chưa có thành viên nào khác tham gia</span>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="d-flex flex-column border-start border-secondary bg-dark" style={{ width: '25%', minWidth: '300px' }}>
-                    <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-0 border-bottom border-secondary" variant="pills" fill>
-                        <Tab eventKey="chat" title="💬 Chat">
-                            <div className="d-flex flex-column h-100" style={{ height: 'calc(100vh - 110px)' }}>
-                                <div className="p-2 border-bottom border-secondary d-flex justify-content-center gap-2">
-                                    <Button size="sm" variant={chatMode === 'class' ? 'primary' : 'outline-primary'} onClick={() => setChatMode('class')}>
+                <div className="d-flex flex-column bg-white shadow-sm z-2" style={{ width: '25%', minWidth: '320px', borderLeft: '1px solid rgba(0,0,0,0.05)' }}>
+                    <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-0 border-bottom bg-light px-2 pt-2" variant="pills" fill>
+                        <Tab eventKey="chat" title={<span className="fw-bold"><i className="bi bi-chat-dots-fill me-1"></i> Chat</span>}>
+                            <div className="d-flex flex-column h-100" style={{ height: 'calc(100vh - 115px)' }}>
+                                <div className="p-3 border-bottom d-flex justify-content-center gap-2 bg-light">
+                                    <Button size="sm" variant={chatMode === 'class' ? 'primary' : 'outline-primary'} className="rounded-pill px-3 fw-bold shadow-sm" onClick={() => setChatMode('class')}>
                                         Hỏi Lớp
                                     </Button>
-                                    <Button size="sm" variant={chatMode === 'ai' ? 'success' : 'outline-success'} onClick={() => setChatMode('ai')}>
+                                    <Button size="sm" variant={chatMode === 'ai' ? 'success' : 'outline-success'} className="rounded-pill px-3 fw-bold shadow-sm" onClick={() => setChatMode('ai')}>
                                         ✨ Hỏi AI Tutor
                                     </Button>
                                 </div>
-                                <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar">
+                                <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar bg-white">
                                     {chatMode === 'class' ? (
-                                        messages.length === 0 ? <p className="text-muted text-center small mt-3">Chưa có đoạn chat nào.</p> :
+                                        messages.length === 0 ? <div className="text-center mt-5"><i className="bi bi-chat-square-dots fs-1 text-muted opacity-25"></i><p className="text-muted small mt-2 fw-500">Chưa có đoạn chat nào.</p></div> :
                                             messages.map((msg, idx) => {
                                                 const isMe = msg.senderId === socketRef.current?.id;
                                                 return (
                                                     <div key={idx} className={`d-flex flex-column mb-3 ${isMe ? 'align-items-end' : 'align-items-start'}`}>
-                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-info'}`}>
+                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-secondary'}`} style={{ fontSize: '0.75rem' }}>
                                                             {msg.sender} {isMe ? '(Bạn)' : ''}
                                                         </div>
-                                                        <div className={`p-2 px-3 rounded-3 shadow-sm ${isMe ? 'bg-primary text-white border-primary' : 'bg-secondary bg-opacity-75 text-white border-secondary'}`}
-                                                            style={{ maxWidth: '85%', fontSize: '0.9rem', border: '1px solid transparent' }}>
+                                                        <div className={`p-2 px-3 rounded-4 shadow-sm ${isMe ? 'bg-primary text-white border-0' : 'bg-light text-dark border-0'}`}
+                                                            style={{ maxWidth: '85%', fontSize: '0.9rem', borderBottomRightRadius: isMe ? '4px' : '16px', borderBottomLeftRadius: !isMe ? '4px' : '16px' }}>
                                                             {msg.text}
                                                         </div>
                                                     </div>
@@ -463,25 +463,27 @@ export default function VirtualClassroom() {
                                             })
                                     ) : (
                                         <>
-                                            <div className="text-center mb-3">
-                                                <Badge bg="success" className="px-3 py-2 rounded-pill fw-normal">Tính năng RAG AI: Tra cứu nội dung môn học</Badge>
+                                            <div className="text-center mb-4 mt-2">
+                                                <Badge bg="success" className="bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill fw-600">
+                                                    <i className="bi bi-robot me-1"></i> Trợ lý giảng dạy AI (RAG)
+                                                </Badge>
                                             </div>
 
                                             {currentUser.role === 'lecturer' && (
-                                                <div className="mb-3 p-2 border border-success border-dashed rounded bg-success bg-opacity-10">
-                                                    <h6 className="small fw-bold mb-2">Tải tài liệu Bài giảng cho AI:</h6>
+                                                <div className="mb-4 p-3 border border-success border-opacity-50 border-dashed rounded-4 bg-success bg-opacity-10 shadow-sm">
+                                                    <h6 className="small fw-800 text-dark mb-2"><i className="bi bi-file-earmark-pdf-fill text-danger"></i> Tải tài liệu Bài giảng cho AI:</h6>
                                                     <Form.Control
                                                         type="file"
                                                         accept=".pdf"
                                                         size="sm"
                                                         onChange={handleFileUpload}
-                                                        className="bg-dark text-white border-secondary mb-1"
+                                                        className="bg-white text-dark border-0 shadow-sm mb-2 rounded-pill"
                                                         disabled={isUploading}
                                                     />
-                                                    {uploadStatus && <div className="small text-success mt-1">{uploadStatus}</div>}
+                                                    {uploadStatus && <div className="small text-success fw-bold">{uploadStatus}</div>}
                                                     {isUploading && (
-                                                        <div className="text-secondary small mt-1">
-                                                            <span className="spinner-grow spinner-grow-sm me-1" role="status"></span>
+                                                        <div className="text-secondary small fw-500">
+                                                            <span className="spinner-border spinner-border-sm me-2 text-primary" role="status"></span>
                                                             Đang xử lý PDF...
                                                         </div>
                                                     )}
@@ -491,11 +493,11 @@ export default function VirtualClassroom() {
                                                 const isMe = !msg.isAi;
                                                 return (
                                                     <div key={idx} className={`d-flex flex-column mb-3 ${isMe ? 'align-items-end' : 'align-items-start'}`}>
-                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-success'}`}>
+                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-success'}`} style={{ fontSize: '0.75rem' }}>
                                                             {msg.sender}
                                                         </div>
-                                                        <div className={`p-2 px-3 rounded-3 shadow-sm ${isMe ? 'bg-primary text-white border-primary' : (msg.error ? 'bg-danger text-white border-danger' : 'bg-success bg-opacity-10 text-white border border-success border-opacity-25')}`}
-                                                            style={{ maxWidth: '85%', fontSize: '0.9rem' }}>
+                                                        <div className={`p-2 px-3 rounded-4 shadow-sm ${isMe ? 'bg-primary text-white border-0' : (msg.error ? 'bg-danger bg-opacity-10 text-danger border-0' : 'bg-success bg-opacity-10 text-dark border-0')}`}
+                                                            style={{ maxWidth: '85%', fontSize: '0.9rem', borderBottomRightRadius: isMe ? '4px' : '16px', borderBottomLeftRadius: !isMe ? '4px' : '16px' }}>
                                                             {msg.text}
                                                         </div>
                                                     </div>
@@ -503,47 +505,48 @@ export default function VirtualClassroom() {
                                             })}
                                             {isAiTyping && (
                                                 <div className="d-flex flex-column mb-3 align-items-start">
-                                                    <div className="small text-muted mb-1">Gia sư AI</div>
-                                                    <div className="p-2 rounded bg-success bg-opacity-25 text-white border border-success">
-                                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                                        Đang suy nghĩ...
+                                                    <div className="small text-success fw-bold mb-1" style={{ fontSize: '0.75rem' }}>Gia sư AI</div>
+                                                    <div className="p-2 px-3 rounded-4 bg-light text-secondary border-0 d-flex align-items-center shadow-sm">
+                                                        <span className="spinner-border spinner-border-sm me-2 text-success" role="status"></span>
+                                                        <span className="small fw-500">Đang suy nghĩ...</span>
                                                     </div>
                                                 </div>
                                             )}
                                         </>
                                     )}
                                 </div>
-                                <div className="p-2 border-top border-secondary">
-                                    <InputGroup>
+                                <div className="p-3 border-top bg-light">
+                                    <InputGroup className="shadow-sm rounded-pill overflow-hidden bg-white">
                                         <Form.Control
                                             placeholder={"Nhập tin nhắn..."}
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            className="bg-dark text-white border-secondary"
+                                            className="bg-white text-dark border-0 border-end-0 py-2 ps-4"
+                                            style={{ boxShadow: 'none' }}
                                         />
-                                        <Button variant="primary" onClick={handleSendMessage}>
+                                        <Button variant="primary" onClick={handleSendMessage} className="px-4 border-0">
                                             <i className="bi bi-send-fill"></i>
                                         </Button>
                                     </InputGroup>
                                 </div>
                             </div>
                         </Tab>
-                        <Tab eventKey="people" title={`👥 (${peers.length + 1})`}>
-                            <div className="p-3">
-                                <h6>Trong phòng ({peers.length + 1})</h6>
-                                <div className="d-flex align-items-center mb-3">
-                                    <div className="bg-primary rounded-circle me-2 pt-1 text-center" style={{ width: 30, height: 30, lineHeight: '30px' }}>
-                                        <i className="bi bi-person"></i>
+                        <Tab eventKey="people" title={<span className="fw-bold"><i className="bi bi-people-fill me-1"></i> ({peers.length + 1})</span>}>
+                            <div className="p-3 bg-white h-100">
+                                <h6 className="fw-800 text-dark mb-4 border-bottom pb-2">Thành viên trong lớp ({peers.length + 1})</h6>
+                                <div className="d-flex align-items-center mb-3 bg-light p-2 rounded-3">
+                                    <div className="bg-primary rounded-circle me-3 text-center text-white shadow-sm" style={{ width: 36, height: 36, lineHeight: '36px' }}>
+                                        <i className="bi bi-person-fill fs-5"></i>
                                     </div>
-                                    <span>Bạn</span>
+                                    <span className="fw-bold text-dark">Bạn <Badge bg="secondary" className="ms-1 px-2 py-1 rounded-pill small" style={{ fontSize: '0.65rem' }}>{currentUser.role}</Badge></span>
                                 </div>
                                 {peers.map((peer) => (
-                                    <div key={peer.peerID} className="d-flex align-items-center mb-3 text-muted">
-                                        <div className="bg-secondary rounded-circle me-2 pt-1 text-center text-white" style={{ width: 30, height: 30, lineHeight: '30px' }}>
+                                    <div key={peer.peerID} className="d-flex align-items-center mb-3 text-dark p-2 hover-bg-light rounded-3 transition-fast">
+                                        <div className="bg-secondary bg-opacity-25 rounded-circle me-3 text-center text-dark fw-bold shadow-sm" style={{ width: 36, height: 36, lineHeight: '36px' }}>
                                             {peer.username?.charAt(0).toUpperCase() || 'U'}
                                         </div>
-                                        <span>{peer.username}</span>
+                                        <span className="fw-500">{peer.username}</span>
                                     </div>
                                 ))}
                             </div>
