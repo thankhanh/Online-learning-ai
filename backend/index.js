@@ -31,6 +31,7 @@ app.use('/api/classrooms', require('./src/routes/classroomRoutes'));
 app.use('/api/exams', require('./src/routes/examRoutes'));
 app.use('/api/ai', require('./src/routes/aiRoutes'));
 app.use('/api/notifications', require('./src/routes/notificationRoutes'));
+app.use('/api/quiz', require('./src/routes/quizRoutes'));
 
 app.get(['/api', '/api/'], (req, res) => {
     res.json({ success: true, message: "API is reachable" });

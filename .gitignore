@@ -23,3 +23,7 @@ yarn-error.log*
 
 # Docker
 .docker/
+
+# AI Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep

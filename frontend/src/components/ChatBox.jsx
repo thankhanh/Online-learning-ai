@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 
-const ChatBox = () => {
+const ChatBox = ({ classroomId }) => {
     const [messages, setMessages] = useState([
         { id: 1, sender: 'ai', text: 'Hello! I am your AI Tutor. Ask me anything about the lecture.' }
     ]);
     const [inputValue, setInputValue] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -15,19 +17,40 @@ const ChatBox = () => {
         scrollToBottom();
     }, [messages]);
 
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!inputValue.trim()) return;
+        if (!inputValue.trim() || isLoading) return;
 
-        const newUserMsg = { id: Date.now(), sender: 'user', text: inputValue };
+        const userQ = inputValue;
+        const newUserMsg = { id: Date.now(), sender: 'user', text: userQ };
         setMessages(prev => [...prev, newUserMsg]);
         setInputValue('');
+        setIsLoading(true);
 
-        // Simulate AI response
-        setTimeout(() => {
-            const newAiMsg = { id: Date.now() + 1, sender: 'ai', text: 'Thinking... (This is a mock response)' };
-            setMessages(prev => [...prev, newAiMsg]);
-        }, 1000);
+        const tempAiMsgId = Date.now() + 1;
+        setMessages(prev => [...prev, { id: tempAiMsgId, sender: 'ai', text: 'Thinking...' }]);
+
+        try {
+            const response = await axios.post('http://localhost:5000/api/ai/ask', {
+                question: userQ,
+                classroomId: classroomId
+            });
+
+            setMessages(prev => 
+                prev.map(msg => 
+                    msg.id === tempAiMsgId ? { ...msg, text: response.data.answer } : msg
+                )
+            );
+        } catch (error) {
+            console.error("AI Error:", error);
+            setMessages(prev => 
+                prev.map(msg => 
+                    msg.id === tempAiMsgId ? { ...msg, text: "Sorry, I encountered an error connecting to the AI." } : msg
+                )
+            );
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -53,8 +76,11 @@ const ChatBox = () => {
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         placeholder="Ask a question..."
+                        disabled={isLoading}
                     />
-                    <button type="submit" className="btn btn-primary">Send</button>
+                    <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                        {isLoading ? 'Wait...' : 'Send'}
+                    </button>
                 </form>
             </div>
         </div>
