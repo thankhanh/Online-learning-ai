@@ -1,8 +1,60 @@
-import React, { useState } from 'react';
-import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, ProgressBar } from 'react-bootstrap';
+import React, { useState, useRef } from 'react';
+import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, Spinner, Alert } from 'react-bootstrap';
+import axios from 'axios';
 
 export default function ExamManagement() {
     const [key, setKey] = useState('overview');
+
+    // AI Integration States
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedQuiz, setGeneratedQuiz] = useState([]);
+    const [generateError, setGenerateError] = useState('');
+    const fileInputRef = useRef(null);
+    
+    // Hardcoded for Demo purposes
+    const mockClassroomId = "6980e7970960e0fbd8c2b675";
+    const mockUserId = "6980c7970960c0fbd8c2b665";
+
+    const handleAIGenerateExam = async () => {
+        if (!selectedFile) {
+            setGenerateError("Vui lòng chọn File PDF bài giảng trước!");
+            return;
+        }
+        
+        setIsGenerating(true);
+        setGenerateError('');
+        setGeneratedQuiz([]);
+
+        try {
+            // Bước 1: Nạp PDF vào VectorDB
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('classroomId', mockClassroomId);
+            formData.append('userId', mockUserId);
+            formData.append('title', selectedFile.name);
+
+            await axios.post('http://localhost:5000/api/ai/ingest', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            // Bước 2: Kích hoạt sinh đề
+            const response = await axios.post('http://localhost:5000/api/quiz/generate', {
+                classroomId: mockClassroomId
+            });
+
+            if (response.data && response.data.quiz) {
+                setGeneratedQuiz(response.data.quiz);
+            } else {
+                throw new Error("Không thể trích xuất câu hỏi từ AI.");
+            }
+        } catch (error) {
+            console.error(error);
+            setGenerateError(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     // Mock Data for Integrity Log
     const integrityLogs = [
@@ -95,19 +147,65 @@ export default function ExamManagement() {
                                             </Col>
                                         </Row>
                                         <Form.Group className="mb-3">
-                                            <Form.Label>Đề thi (PDF/Word)</Form.Label>
-                                            <Form.Control type="file" className="bg-secondary text-white border-0" />
-                                            <Form.Text className="text-muted">
-                                                Tải lên file đề thi thay vì nhập từng câu.
-                                            </Form.Text>
+                                            <Form.Label>Tài liệu bài giảng (PDF) để AI Tạo Đề</Form.Label>
+                                            <Form.Control 
+                                                type="file" 
+                                                accept=".pdf"
+                                                className="bg-secondary text-white border-0 mb-2" 
+                                                ref={fileInputRef}
+                                                onChange={(e) => setSelectedFile(e.target.files[0])}
+                                            />
+                                            {generateError && <Alert variant="danger" className="py-2 text-sm">{generateError}</Alert>}
+                                            <Button 
+                                                variant="primary" 
+                                                className="w-100 mb-3 fw-bold" 
+                                                disabled={isGenerating}
+                                                onClick={handleAIGenerateExam}
+                                            >
+                                                {isGenerating ? (
+                                                    <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" /> Đang đọc PDF & Ra Đề AI (Sẽ mất cỡ 30s)...</>
+                                                ) : (
+                                                    <><i className="bi bi-magic"></i> Tải lên & Ra đề tự động bằng AI</>
+                                                )}
+                                            </Button>
                                         </Form.Group>
-                                        <Button variant="success" className="w-100">
-                                            <i className="bi bi-check-lg"></i> Tạo Phòng thi
+                                        <Button variant="success" className="w-100" disabled={isGenerating}>
+                                            <i className="bi bi-check-lg"></i> Hoàn tất & Mở Phòng thi
                                         </Button>
                                     </Form>
                                 </Card.Body>
                             </Card>
                         </Col>
+
+                        {/* Preview Đề AI sinh ra */}
+                        {generatedQuiz.length > 0 && (
+                            <Col md={12} className="mb-4">
+                                <Card className="bg-dark text-white border-primary shadow-lg mt-3">
+                                    <Card.Header className="bg-primary border-0 d-flex justify-content-between align-items-center">
+                                        <h5 className="m-0"><i className="bi bi-robot"></i> Bản XEM TRƯỚC: Đề Thi AI Tạo Thành Công ({generatedQuiz.length} Câu)</h5>
+                                        <Badge bg="success">Mới</Badge>
+                                    </Card.Header>
+                                    <Card.Body>
+                                        <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scroll">
+                                            {generatedQuiz.map((q, idx) => (
+                                                <div key={idx} className="mb-4 bg-secondary p-3 rounded-2">
+                                                    <h6 className="fw-bold text-info">Câu {idx + 1}: {q.question}</h6>
+                                                    <ul className="list-unstyled ms-3 mt-2 mb-0">
+                                                        {q.options.map((opt, oIdx) => (
+                                                            <li key={oIdx} className="mb-1">
+                                                                <span className={opt === q.answer ? "text-success fw-bold" : "text-light"}>
+                                                                    {opt === q.answer ? "👉 " : "○ "}{opt}
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        )}
 
                         <Col md={8}>
                             <Card className="bg-dark text-white border-secondary">

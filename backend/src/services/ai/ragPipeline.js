@@ -68,8 +68,8 @@ class RagPipeline {
             }
 
             const textSplitter = new RecursiveCharacterTextSplitter({
-                chunkSize: 1000,
-                chunkOverlap: 200,
+                chunkSize: 500,
+                chunkOverlap: 100,
             });
 
             const docs = await textSplitter.createDocuments([text], [metadata]);
