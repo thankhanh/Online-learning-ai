@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const aiService = require('../services/ai/aiService');
+const aiController = require('../controllers/aiController');
+const { auth } = require('../middleware/authMiddleware');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -31,86 +32,22 @@ const upload = multer({
     }
 });
 
-// POST /api/ai/ask
-router.post('/ask', async (req, res) => {
-    try {
-        const { question } = req.body;
-        if (!question) {
-            return res.status(400).json({ success: false, message: 'Question is required' });
-        }
+// @route   POST /api/ai/ask
+// @desc    Ask a question to AI (RAG)
+// @access  Private
+router.post('/ask', auth, aiController.askAI);
 
-        const answer = await aiService.askQuestion(question);
-        
-        res.json({
-            success: true,
-            answer: answer.trim()
-        });
+// @route   GET /api/ai/history
+// @desc    Get AI Chat History for a user
+// @access  Private
+router.get('/history', auth, aiController.getChatHistory);
 
-    } catch (error) {
-        console.error("AI Error:", error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to process AI request. Is Ollama running?', 
-            error: error.message 
-        });
-    }
-});
+// @route   POST /api/ai/upload (alias: /ingest)
+// @desc    Upload and ingest a document
+// @access  Private
+router.post('/upload', auth, upload.single('file'), aiController.ingestDocument);
 
-// POST /api/ai/upload (alias: /ingest)
-router.post('/upload', upload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
-        }
-
-        const filePath = req.file.path;
-        const result = await aiService.processDocument(filePath);
-
-        // Delete the file after processing to save space
-        fs.unlinkSync(filePath);
-
-        res.json({
-            success: true,
-            message: "Document processed and stored in memory.",
-            chunks: result.chunks
-        });
-
-    } catch (error) {
-        console.error("AI Upload Error:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to process document.",
-            error: error.message
-        });
-    }
-});
-
-// POST /api/ai/ingest (same as /upload, AI branch alias)
-router.post('/ingest', upload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
-        }
-
-        const filePath = req.file.path;
-        const result = await aiService.processDocument(filePath);
-
-        fs.unlinkSync(filePath);
-
-        res.json({
-            success: true,
-            message: "Document processed and stored in memory.",
-            chunks: result.chunks
-        });
-
-    } catch (error) {
-        console.error("AI Ingest Error:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to process document.",
-            error: error.message
-        });
-    }
-});
+// @route   POST /api/ai/ingest (same as /upload, AI branch alias)
+router.post('/ingest', auth, upload.single('file'), aiController.ingestDocument);
 
 module.exports = router;
