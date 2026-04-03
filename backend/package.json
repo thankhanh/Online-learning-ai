@@ -14,7 +14,8 @@
   "dependencies": {
     "@langchain/classic": "^1.0.24",
     "@langchain/community": "^1.1.24",
-    "@langchain/core": "^1.1.35",
+    "@langchain/core": "^1.1.38",
+    "@langchain/groq": "^1.1.5",
     "@langchain/mongodb": "^1.1.0",
     "@langchain/ollama": "^1.2.6",
     "@langchain/textsplitters": "^1.0.1",

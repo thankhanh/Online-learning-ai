@@ -1,36 +1,40 @@
-const { Ollama } = require('@langchain/ollama');
+const { ChatGroq } = require('@langchain/groq');
 const ragPipeline = require('./ragPipeline');
 
 class QuizService {
     constructor() {
-        this.model = new Ollama({
-            baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-            model: 'qwen2.5:1.5b',
-            format: 'json' // Request ollama to format as JSON if supported by model/server. Often helps.
+        // ✅ Hybrid: Dùng Groq Cloud cho Quiz Generation
+        this.model = new ChatGroq({
+            apiKey: process.env.GROQ_API_KEY,
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.3,   // Hơi cao hơn để tạo câu hỏi đa dạng
+            maxRetries: 2,
         });
     }
 
     async generateQuiz(classroomId) {
         try {
-            // 1. Fetch larger context. Since we want a quiz, we fetch up to 12 chunks.
+            // 1. Fetch context từ MongoDB Atlas Vector Search
             const filter = classroomId ? { classroomId } : {};
             const vectorStore = await ragPipeline.getVectorStore();
             let contextText = "";
             
             if (vectorStore) {
-                // Broad query to get a good mix of concepts
-                const results = await vectorStore.similaritySearch("Quy định, khái niệm, tóm tắt bài học quan trọng", 10, filter);
+                const results = await vectorStore.similaritySearch(
+                    "Quy định, khái niệm, tóm tắt bài học quan trọng", 
+                    10, 
+                    filter
+                );
                 if (results && results.length > 0) {
                     contextText = results.map(doc => doc.pageContent).join('\n\n');
                 }
             }
 
             if (!contextText) {
-                // Fallback message if no context found
                 throw new Error("Không tìm thấy văn bản nào cho lớp học này. Vui lòng nạp File PDF/Tài liệu trước khi sinh câu hỏi.");
             }
 
-            // 2. Strong Prompt to force JSON format
+            // 2. Prompt tối ưu cho Groq
             const prompt = `Bạn là giáo viên chuyên xây dựng đề thi trắc nghiệm. Dựa vào nội dung dưới đây, hãy tạo bài kiểm tra gồm chính xác 10 câu hỏi trắc nghiệm.
             
 Nội dung tài liệu:
@@ -48,13 +52,12 @@ Bạn PHẢI trả lời BẰNG ĐỊNH DẠNG JSON. Không giải thích thêm,
 > Lưu ý, "answer" phải giống y hệt chuỗi trong một "options". 
 `;
 
-            const rawResponse = await this.model.invoke(prompt);
+            const response = await this.model.invoke(prompt);
             
-            // 3. Clean and parse JSON
-            // Ollama might still output some markdown blocks like ```json ... ```
-            let jsonStr = rawResponse.trim();
+            // 3. Parse JSON từ response
+            let jsonStr = response.content.trim();
             if (jsonStr.startsWith('```json')) {
-                jsonStr = jsonStr.substring(7); // remove ```json
+                jsonStr = jsonStr.substring(7);
             }
             if (jsonStr.startsWith('```')) {
                 jsonStr = jsonStr.substring(3);
@@ -66,13 +69,12 @@ Bạn PHẢI trả lời BẰNG ĐỊNH DẠNG JSON. Không giải thích thêm,
             let quizData = JSON.parse(jsonStr.trim());
             console.log("Raw parsed AI response:", quizData);
 
-            // Sometimes models return {"quiz": [...]} instead of just [...]
+            // Handle various JSON structures
             if (!Array.isArray(quizData)) {
                 if (quizData.quiz && Array.isArray(quizData.quiz)) quizData = quizData.quiz;
                 else if (quizData.questions && Array.isArray(quizData.questions)) quizData = quizData.questions;
                 else if (quizData.data && Array.isArray(quizData.data)) quizData = quizData.data;
                 else {
-                    // Try to find any property that is an array
                     for (let key in quizData) {
                         if (Array.isArray(quizData[key])) {
                             quizData = quizData[key];
@@ -81,7 +83,6 @@ Bạn PHẢI trả lời BẰNG ĐỊNH DẠNG JSON. Không giải thích thêm,
                     }
                 }
             }
-            // If it's STILL not an array, convert to an array to avoid crashes if it returned just 1 object
             if (!Array.isArray(quizData)) {
                 quizData = [quizData]; 
             }

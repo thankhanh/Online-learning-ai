@@ -1,0 +1,10 @@
+﻿M  backend/.env
+UU backend/package-lock.json
+UU backend/package.json
+UU backend/src/services/ai/aiService.js
+M  backend/src/services/ai/quizService.js
+M  backend/src/services/ai/ragPipeline.js
+A  docs/AI_ALGORITHMS_SUMMARY.md
+A  docs/HYBRID_RAG_ARCHITECTURE.md
+UU frontend/src/features/lecturer/ExamManagement.jsx
+?? conflict_status.txt

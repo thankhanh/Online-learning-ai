@@ -1,19 +1,21 @@
-const { Ollama } = require('@langchain/ollama');
+const { ChatGroq } = require('@langchain/groq');
 const ragPipeline = require('./ragPipeline');
 const fs = require('fs').promises;
 
 class AIService {
     constructor() {
-        this.model = new Ollama({
-            baseUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-            model: 'qwen2.5:1.5b',
-            temperature: 0.3
+        // ✅ Hybrid: Dùng Groq Cloud cho Generation (nhanh, model 70B, miễn phí)
+        this.model = new ChatGroq({
+            apiKey: process.env.GROQ_API_KEY,
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.1,   // Giảm hallucination, trả lời chính xác
+            maxRetries: 2,
         });
     }
 
     async processDocument(filePath, metadata = {}) {
         try {
-            // Decode URI component to handle %20 and other encoded characters
+            // ✅ Embedding vẫn chạy LOCAL qua Ollama (bảo mật tài liệu)
             const decodedPath = decodeURIComponent(filePath);
             const fileBuffer = await fs.readFile(decodedPath);
             const isPdf = decodedPath.toLowerCase().endsWith('.pdf');
@@ -26,10 +28,17 @@ class AIService {
 
     async askQuestion(question, filter = {}) {
         try {
+            // Bước 1: Tìm context từ MongoDB (qua Ollama Embedding LOCAL)
             const context = await ragPipeline.retrieveContext(question, filter);
 
-            const prompt = `Bạn là một trợ lý học tập thông minh. 
-Sử dụng ngữ cảnh dưới đây để trả lời câu hỏi của người dùng. Nếu không có ngữ cảnh hoặc ngữ cảnh không đủ thông tin, hãy trả lời dựa trên kiến thức của bạn.
+            // Bước 2: Gửi lên Groq Cloud để sinh câu trả lời
+            const prompt = `Bạn là một giáo sư, trợ lý học tập chuyên nghiệp.
+
+QUY TẮC BẮT BUỘC:
+1. CHỈ trả lời dựa trên Ngữ cảnh bên dưới. KHÔNG bịa thông tin.
+2. Nếu Ngữ cảnh không đủ, hãy nói rõ "Tài liệu không đề cập đến vấn đề này" rồi mới bổ sung kiến thức chung.
+3. Trả lời bằng Tiếng Việt, ngắn gọn, rõ ràng, có cấu trúc (dùng bullet point khi cần).
+4. Trích dẫn nội dung cụ thể từ Ngữ cảnh để minh chứng.
 
 Ngữ cảnh:
 ${context}
@@ -38,7 +47,7 @@ Câu hỏi: ${question}
 Trả lời:`;
 
             const response = await this.model.invoke(prompt);
-            return response;
+            return response.content;
         } catch (error) {
             console.error("Error asking question:", error);
             throw error;

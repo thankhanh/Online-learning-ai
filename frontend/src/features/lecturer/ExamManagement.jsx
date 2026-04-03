@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, Modal } from 'react-bootstrap';
+import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, Modal, Spinner, Alert } from 'react-bootstrap';
 import { CheckCircle, XCircle } from 'lucide-react';
 import api from '../../utils/api';
 import socket from '../../utils/socket';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 export default function ExamManagement({ user }) {
     const [key, setKey] = useState('overview');
@@ -29,6 +30,64 @@ export default function ExamManagement({ user }) {
     const [resultsLoading, setResultsLoading] = useState(false);
     const [showReview, setShowReview] = useState(false);
     const [reviewData, setReviewData] = useState(null);
+
+    // AI Integration States
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedQuiz, setGeneratedQuiz] = useState([]);
+    const fileInputRef = useRef(null);
+    
+    // Hardcoded for Demo purposes
+    const mockClassroomId = "6980e7970960e0fbd8c2b675";
+    const mockUserId = "6980c7970960c0fbd8c2b665";
+
+    const handleAIGenerateExam = async () => {
+        if (!selectedFile) {
+            toast.error("Vui lòng chọn File PDF bài giảng trước!");
+            return;
+        }
+        
+        setIsGenerating(true);
+        setGeneratedQuiz([]);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('classroomId', mockClassroomId);
+            formData.append('userId', mockUserId);
+            formData.append('title', selectedFile.name);
+
+            await axios.post('http://localhost:5000/api/ai/ingest', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const response = await axios.post('http://localhost:5000/api/quiz/generate', {
+                classroomId: mockClassroomId
+            });
+
+            if (response.data && response.data.quiz) {
+                // Update newExam with generated questions
+                const newQuestions = response.data.quiz.map(q => ({
+                    questionText: q.question,
+                    options: q.options,
+                    correctAnswer: q.answer,
+                    type: 'multiple-choice'
+                }));
+                setNewExam(prev => ({
+                    ...prev,
+                    questions: [...prev.questions, ...newQuestions]
+                }));
+                toast.success('Đã tải câu hỏi sinh từ AI thành công!');
+            } else {
+                throw new Error("Không thể trích xuất câu hỏi từ AI.");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     useEffect(() => {
         const onConnect = () => console.log('MONITOR SOCKET CONNECTED:', socket.id);
