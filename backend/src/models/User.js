@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
     displayName: { type: String },
     avatar: { type: String, default: '' },
     role: { type: String, enum: ['student', 'lecturer', 'admin'], default: 'student' },
+    status: { type: String, enum: ['active', 'blocked'], default: 'active' },
     createdAt: { type: Date, default: Date.now }
 });
 

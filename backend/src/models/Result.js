@@ -7,8 +7,10 @@ const resultSchema = new mongoose.Schema({
     answers: [{
         questionId: mongoose.Schema.Types.ObjectId,
         selectedOption: String,
-        essayAnswer: String
+        essayAnswer: String,
+        isCorrect: { type: Boolean, default: false }
     }],
+    status: { type: String, enum: ['pending', 'graded'], default: 'pending' },
     violations: [{
         type: { type: String }, // e.g., 'tab-switch'
         count: { type: Number, default: 1 },

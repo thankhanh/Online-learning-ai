@@ -67,3 +67,43 @@ exports.markAllAsRead = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+/**
+ * @route   DELETE /api/notifications/:id
+ * @desc    Delete a notification
+ * @access  Private
+ */
+exports.deleteNotification = async (req, res) => {
+    try {
+        const notification = await Notification.findById(req.params.id);
+        
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        if (notification.user.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        await notification.deleteOne();
+        res.json({ success: true, message: 'Notification deleted' });
+    } catch (error) {
+        console.error('Delete Notification Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   DELETE /api/notifications
+ * @desc    Delete all notifications for current user
+ * @access  Private
+ */
+exports.deleteAllNotifications = async (req, res) => {
+    try {
+        await Notification.deleteMany({ user: req.user.id });
+        res.json({ success: true, message: 'All notifications deleted' });
+    } catch (error) {
+        console.error('Delete All Notifications Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};

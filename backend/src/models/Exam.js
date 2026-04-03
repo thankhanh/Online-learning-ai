@@ -13,6 +13,7 @@ const examSchema = new mongoose.Schema({
     status: { type: String, enum: ['draft', 'active', 'completed'], default: 'draft' },
     maxViolations: { type: Number, default: 3 },
     startTime: Date,
+    endTime: Date,
     createdAt: { type: Date, default: Date.now }
 });
 

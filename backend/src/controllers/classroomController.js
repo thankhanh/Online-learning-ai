@@ -1,5 +1,7 @@
 const Classroom = require('../models/Classroom');
 const User = require('../models/User');
+const Material = require('../models/Material');
+const StudyProgress = require('../models/StudyProgress');
 const crypto = require('crypto');
 
 /**
@@ -17,7 +19,7 @@ const generateClassCode = () => {
  */
 exports.createClassroom = async (req, res) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, category } = req.body;
 
         if (!name) {
             return res.status(400).json({ success: false, message: 'Classroom name is required' });
@@ -28,8 +30,9 @@ exports.createClassroom = async (req, res) => {
         const classroom = new Classroom({
             name,
             description,
+            category,
             lecturer: req.user.id,
-            code: classCode, // Assuming we add 'code' to the model or handle it
+            code: classCode, 
             students: []
         });
 
@@ -180,3 +183,123 @@ exports.deleteClassroom = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+/**
+ * @route   PUT /api/classrooms/:id/schedule
+ * @desc    Update classroom schedule
+ * @access  Private/Lecturer
+ */
+exports.updateSchedule = async (req, res) => {
+    try {
+        const { schedule } = req.body;
+        const classroom = await Classroom.findById(req.params.id);
+
+        if (!classroom) return res.status(404).json({ success: false, message: 'Classroom not found' });
+        if (classroom.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        classroom.schedule = schedule;
+        await classroom.save();
+
+        res.json({ success: true, message: 'Schedule updated', schedule: classroom.schedule });
+    } catch (error) {
+        console.error('Update Schedule Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   POST /api/classrooms/:id/materials/:materialId/view
+ * @desc    Mark a material as viewed and update progress
+ * @access  Private/Student
+ */
+exports.markMaterialAsViewed = async (req, res) => {
+    try {
+        const { id, materialId } = req.params;
+
+        // Verify material exists
+        const material = await Material.findById(materialId);
+        if (!material) return res.status(404).json({ success: false, message: 'Material not found' });
+
+        // Update or Create StudyProgress
+        let progress = await StudyProgress.findOne({ student: req.user.id, classroom: id });
+        if (!progress) {
+            progress = new StudyProgress({
+                student: req.user.id,
+                classroom: id,
+                viewedMaterials: [materialId]
+            });
+        } else {
+            if (!progress.viewedMaterials.includes(materialId)) {
+                progress.viewedMaterials.push(materialId);
+            }
+            progress.lastAccessedAt = Date.now();
+        }
+
+        await progress.save();
+        res.json({ success: true, message: 'Progress updated' });
+    } catch (error) {
+        console.error('Mark Material Viewed Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   GET /api/classrooms/:id/progress
+ * @desc    Get student's progress in a classroom
+ * @access  Private/Student
+ */
+exports.getClassroomProgress = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const totalMaterials = await Material.countDocuments({ classroom: id });
+        if (totalMaterials === 0) return res.json({ success: true, progress: 100 }); // No materials means 100% complete? or 0? Let's say 100 or N/A.
+
+        const progress = await StudyProgress.findOne({ student: req.user.id, classroom: id });
+        const viewedCount = progress ? progress.viewedMaterials.length : 0;
+
+        const percentage = Math.round((viewedCount / totalMaterials) * 100);
+
+        res.json({ 
+            success: true, 
+            progress: percentage,
+            viewedCount,
+            totalMaterials 
+        });
+    } catch (error) {
+        console.error('Get Progress Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+/**
+ * @route   DELETE /api/classrooms/:id/students/:studentId
+ * @desc    Remove a student from classroom
+ * @access  Private/Lecturer (Admin)
+ */
+exports.removeStudentFromClass = async (req, res) => {
+    try {
+        const { id, studentId } = req.params;
+        const classroom = await Classroom.findById(id).populate('students', '_id');
+
+        if (!classroom) {
+            return res.status(404).json({ success: false, message: 'Classroom not found' });
+        }
+
+        // Verify authorized: lecturer or admin
+        if (classroom.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        // Remove student from array
+        classroom.students = classroom.students.filter(s => s._id.toString() !== studentId);
+        await classroom.save();
+
+        res.json({ success: true, message: 'Đã gỡ sinh viên khỏi lớp học.' });
+    } catch (error) {
+        console.error('Remove Student Error:', error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
