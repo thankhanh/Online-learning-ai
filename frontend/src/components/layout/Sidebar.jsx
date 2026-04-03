@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Sidebar = ({ user }) => {
+const Sidebar = ({ user, unreadCount = 0 }) => {
     const location = useLocation();
 
     // Menu logic
@@ -29,7 +29,7 @@ const Sidebar = ({ user }) => {
             ];
         }
 
-        items.push({ path: '/notifications', icon: 'bi-bell-fill', label: 'Thông báo' });
+        items.push({ path: '/notifications', icon: 'bi-bell-fill', label: 'Thông báo', badge: unreadCount });
         return items;
     };
 
@@ -66,6 +66,21 @@ const Sidebar = ({ user }) => {
                                                 <i className={`bi ${item.icon} me-3 fs-5`}></i>
                                                 <span style={{ fontSize: '0.9rem' }}>{item.label}</span>
                                                 
+                                                {item.badge > 0 && (
+                                                    <span 
+                                                        className="badge rounded-pill bg-danger border border-2 border-white position-absolute" 
+                                                        style={{ 
+                                                            right: '12px', 
+                                                            fontSize: '0.65rem',
+                                                            transform: 'translateY(-50%)',
+                                                            top: '50%',
+                                                            boxShadow: '0 2px 4px rgba(220, 53, 69, 0.3)'
+                                                        }}
+                                                    >
+                                                        {item.badge > 9 ? '9+' : item.badge}
+                                                    </span>
+                                                )}
+
                                                 {isActive && (
                                                     <motion.div 
                                                         layoutId="sidebar-active"

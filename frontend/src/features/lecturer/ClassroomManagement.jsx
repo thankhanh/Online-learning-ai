@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Badge, Row, Col, Table, Modal, Form } from 'react-bootstrap';
+import { Card, Button, Badge, Row, Col, Table, Modal, Form, Tabs, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
 
 export default function ClassroomManagement({ user }) {
     const [classes, setClasses] = useState([]);
@@ -10,13 +11,28 @@ export default function ClassroomManagement({ user }) {
     const [showModal, setShowModal] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showJoinModal, setShowJoinModal] = useState(false);
-    const [newClass, setNewClass] = useState({ name: '', description: '' });
+    const [newClass, setNewClass] = useState({ name: '', description: '', category: '' });
+    const [categories, setCategories] = useState([]);
     const [joinCode, setJoinCode] = useState('');
+    const [schedule, setSchedule] = useState([]);
+    const [isSavingSchedule, setIsSavingSchedule] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
         fetchClasses();
+        fetchCategories();
     }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const res = await api.get('/categories');
+            if (res.data.success) {
+                setCategories(res.data.categories);
+            }
+        } catch (err) {
+            console.error('Error fetching categories:', err);
+        }
+    };
 
     const fetchClasses = async () => {
         try {
@@ -38,11 +54,11 @@ export default function ClassroomManagement({ user }) {
             if (res.data.success) {
                 setClasses([...classes, res.data.classroom]);
                 setShowCreateModal(false);
-                setNewClass({ name: '', description: '' });
-                alert('Tạo lớp học thành công!');
+                setNewClass({ name: '', description: '', category: '' });
+                toast.success('Tạo lớp học thành công!');
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Không thể tạo lớp học.');
+            toast.error(err.response?.data?.message || 'Không thể tạo lớp học.');
         }
     };
 
@@ -54,16 +70,64 @@ export default function ClassroomManagement({ user }) {
                 setClasses([...classes, res.data.classroom]);
                 setShowJoinModal(false);
                 setJoinCode('');
-                alert('Tham gia lớp học thành công!');
+                toast.success('Tham gia lớp học thành công!');
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Không thể tham gia lớp học. Vui lòng kiểm tra mã code.');
+            toast.error(err.response?.data?.message || 'Không thể tham gia lớp học. Vui lòng kiểm tra mã code.');
         }
     };
 
     const handleClassClick = (cls) => {
         setSelectedClass(cls);
+        setSchedule(cls.schedule || []);
         setShowModal(true);
+    };
+
+    const handleUpdateSchedule = async () => {
+        setIsSavingSchedule(true);
+        try {
+            const res = await api.put(`/classrooms/${selectedClass._id}/schedule`, { schedule });
+            if (res.data.success) {
+                toast.success('Cập nhật lịch học thành công!');
+                setClasses(classes.map(c => c._id === selectedClass._id ? { ...c, schedule: res.data.schedule } : c));
+            }
+        } catch (err) {
+            toast.error('Không thể cập nhật lịch học.');
+        } finally {
+            setIsSavingSchedule(false);
+        }
+    };
+
+    const addScheduleItem = () => {
+        setSchedule([...schedule, { dayOfWeek: 'Thứ 2', startTime: '08:00', endTime: '10:00' }]);
+    };
+
+    const removeScheduleItem = (index) => {
+        setSchedule(schedule.filter((_, i) => i !== index));
+    };
+
+    const updateScheduleItem = (index, field, value) => {
+        const newSchedule = [...schedule];
+        newSchedule[index][field] = value;
+        setSchedule(newSchedule);
+    };
+
+    const handleRemoveStudent = async (studentId) => {
+        if (!window.confirm('Bạn có chắc chắn muốn gỡ sinh viên này khỏi lớp học?')) return;
+        
+        try {
+            const res = await api.delete(`/classrooms/${selectedClass._id}/students/${studentId}`);
+            if (res.data.success) {
+                toast.success('Đã gỡ sinh viên khỏi lớp.');
+                // Update local state
+                const updatedStudents = selectedClass.students.filter(s => s._id !== studentId);
+                const updatedClass = { ...selectedClass, students: updatedStudents };
+                setSelectedClass(updatedClass);
+                setClasses(classes.map(c => c._id === selectedClass._id ? updatedClass : c));
+            }
+        } catch (err) {
+            toast.error('Không thể gỡ sinh viên.');
+        }
     };
 
     if (loading) return (
@@ -175,6 +239,20 @@ export default function ClassroomManagement({ user }) {
                                 placeholder="Khái quát nội dung khóa học..."
                             />
                         </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label className="fw-700 text-secondary">Danh mục môn học</Form.Label>
+                            <Form.Select
+                                required
+                                className="bg-light text-dark border-light shadow-sm rounded-3 px-3 py-2"
+                                value={newClass.category}
+                                onChange={e => setNewClass({ ...newClass, category: e.target.value })}
+                            >
+                                <option value="">-- Chọn danh mục --</option>
+                                {categories.map(cat => (
+                                    <option key={cat._id} value={cat._id}>{cat.name}</option>
+                                ))}
+                            </Form.Select>
+                        </Form.Group>
                     </Modal.Body>
                     <Modal.Footer className="border-light bg-light bg-opacity-50 px-4 py-3">
                         <Button variant="light" className="fw-600 rounded-pill px-4" onClick={() => setShowCreateModal(false)}>Hủy</Button>
@@ -220,36 +298,122 @@ export default function ClassroomManagement({ user }) {
                     <Modal.Title className="fw-800 text-dark">Danh sách sinh viên - <span className="text-primary">{selectedClass?.name}</span></Modal.Title>
                 </Modal.Header>
                 <Modal.Body className="p-0">
-                    <div className="table-responsive">
-                        <Table hover className="align-middle mb-0">
-                            <thead className="bg-light">
-                                <tr>
-                                    <th className="px-4 py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>#</th>
-                                    <th className="py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Họ tên</th>
-                                    <th className="py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Email</th>
-                                    <th className="px-4 py-3 border-light text-end text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Hành động</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {selectedClass?.students?.length > 0 ? selectedClass.students.map((student, index) => (
-                                    <tr key={student._id} className="hover-bg-light transition-fast">
-                                        <td className="px-4 py-3 fw-bold text-muted">{index + 1}</td>
-                                        <td className="py-3 fw-600 text-dark">{student.name}</td>
-                                        <td className="py-3 text-secondary">{student.email}</td>
-                                        <td className="px-4 py-3 text-end">
-                                            <Button variant="outline-danger" size="sm" className="rounded-pill px-3 fw-bold shadow-sm">
-                                                <i className="bi bi-person-x me-1"></i> Gỡ khỏi lớp
+                    <Tabs defaultActiveKey="students" className="px-4 pt-2 border-bottom-0">
+                        <Tab eventKey="students" title={<span><i className="bi bi-people me-2"></i>Sinh viên ({selectedClass?.students?.length || 0})</span>}>
+                            <div className="table-responsive">
+                                <Table hover className="align-middle mb-0">
+                                    <thead className="bg-light">
+                                        <tr>
+                                            <th className="px-4 py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>#</th>
+                                            <th className="py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Họ tên</th>
+                                            <th className="py-3 border-light text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Email</th>
+                                            {user?.role === 'lecturer' && <th className="px-4 py-3 border-light text-end text-secondary fw-700 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Hành động</th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedClass?.students?.length > 0 ? selectedClass.students.map((student, index) => (
+                                            <tr key={student._id} className="hover-bg-light transition-fast">
+                                                <td className="px-4 py-3 fw-bold text-muted">{index + 1}</td>
+                                                <td className="py-3 fw-600 text-dark">{student.name}</td>
+                                                <td className="py-3 text-secondary">{student.email}</td>
+                                                {user?.role === 'lecturer' && (
+                                                    <td className="px-4 py-3 text-end">
+                                                        <Button variant="outline-danger" size="sm" className="rounded-pill px-3 fw-bold shadow-sm" onClick={() => handleRemoveStudent(student._id)}>
+                                                            <i className="bi bi-person-x me-1"></i> Gỡ khỏi lớp
+                                                        </Button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan="4" className="text-center py-5 text-muted fw-600">Lớp học này chưa có sinh viên nào.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </Table>
+                            </div>
+                        </Tab>
+                        <Tab eventKey="schedule" title={<span><i className="bi bi-calendar3 me-2"></i>Lịch học</span>}>
+                            <div className="p-4 bg-light bg-opacity-50">
+                                {user?.role === 'lecturer' ? (
+                                    <div className="bg-white p-4 rounded-4 shadow-sm border">
+                                        <div className="d-flex justify-content-between align-items-center mb-4">
+                                            <h6 className="fw-800 text-dark mb-0">Quản lý lịch học hàng tuần</h6>
+                                            <Button variant="outline-primary" size="sm" onClick={addScheduleItem} className="rounded-pill px-3 fw-bold">
+                                                <i className="bi bi-plus-lg me-2"></i>Thêm buổi học
                                             </Button>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan="4" className="text-center py-5 text-muted fw-600">Lớp học này chưa có sinh viên nào.</td>
-                                    </tr>
+                                        </div>
+                                        {schedule.map((item, idx) => (
+                                            <div key={idx} className="d-flex gap-3 align-items-center mb-3 p-3 bg-light rounded-4 border border-white shadow-inner">
+                                                <div className="flex-grow-1">
+                                                    <Form.Label className="small fw-700 text-muted mb-1 uppercase">Thứ</Form.Label>
+                                                    <Form.Select 
+                                                        size="sm" 
+                                                        className="rounded-pill border-light fw-600"
+                                                        value={item.dayOfWeek}
+                                                        onChange={(e) => updateScheduleItem(idx, 'dayOfWeek', e.target.value)}
+                                                    >
+                                                        {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'].map(d => <option key={d} value={d}>{d}</option>)}
+                                                    </Form.Select>
+                                                </div>
+                                                <div style={{ width: '120px' }}>
+                                                    <Form.Label className="small fw-700 text-muted mb-1 uppercase">Bắt đầu</Form.Label>
+                                                    <Form.Control 
+                                                        type="time" 
+                                                        size="sm" 
+                                                        className="rounded-pill border-light fw-600"
+                                                        value={item.startTime}
+                                                        onChange={(e) => updateScheduleItem(idx, 'startTime', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div style={{ width: '120px' }}>
+                                                    <Form.Label className="small fw-700 text-muted mb-1 uppercase">Kết thúc</Form.Label>
+                                                    <Form.Control 
+                                                        type="time" 
+                                                        size="sm" 
+                                                        className="rounded-pill border-light fw-600"
+                                                        value={item.endTime}
+                                                        onChange={(e) => updateScheduleItem(idx, 'endTime', e.target.value)}
+                                                    />
+                                                </div>
+                                                <Button variant="outline-danger" size="sm" onClick={() => removeScheduleItem(idx)} className="rounded-circle mt-4" style={{ width: '32px', height: '32px', padding: 0 }}>
+                                                    <i className="bi bi-trash"></i>
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        {schedule.length > 0 && (
+                                            <Button variant="primary" onClick={handleUpdateSchedule} disabled={isSavingSchedule} className="mt-2 rounded-pill px-4 fw-bold shadow-sm">
+                                                {isSavingSchedule ? 'Đang lưu...' : 'Lưu lịch học'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="bg-white p-4 rounded-4 shadow-sm border">
+                                        <h6 className="fw-800 text-dark mb-4">Lịch học hàng tuần của lớp</h6>
+                                        {selectedClass?.schedule?.length > 0 ? (
+                                            <div className="row g-3">
+                                                {selectedClass.schedule.map((s, i) => (
+                                                    <div key={i} className="col-md-6">
+                                                        <div className="d-flex align-items-center p-3 rounded-4 bg-primary bg-opacity-10 border border-primary border-opacity-10 text-primary">
+                                                            <div className="bg-white rounded-circle p-2 me-3 shadow-sm text-center" style={{ width: '45px', height: '45px'}}>
+                                                                <i className="bi bi-clock-fill fw-bold"></i>
+                                                            </div>
+                                                            <div>
+                                                                <div className="fw-900 fs-5 mb-0" style={{ letterSpacing: '-0.02em'}}>{s.dayOfWeek}</div>
+                                                                <small className="fw-700 opacity-75">{s.startTime} - {s.endTime}</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-5 text-muted fw-600">Lớp học này chưa cập nhật lịch học.</div>
+                                        )}
+                                    </div>
                                 )}
-                            </tbody>
-                        </Table>
-                    </div>
+                            </div>
+                        </Tab>
+                    </Tabs>
                 </Modal.Body>
             </Modal>
         </div>

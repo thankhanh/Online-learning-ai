@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const QuizBox = ({ classroomId }) => {
     const [quiz, setQuiz] = useState([]);
@@ -7,11 +8,9 @@ const QuizBox = ({ classroomId }) => {
     const [userAnswers, setUserAnswers] = useState({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
-    const [error, setError] = useState('');
 
     const generateQuiz = async () => {
         setIsLoading(true);
-        setError('');
         setQuiz([]);
         setUserAnswers({});
         setIsSubmitted(false);
@@ -29,7 +28,7 @@ const QuizBox = ({ classroomId }) => {
             }
         } catch (err) {
             console.error(err);
-            setError(err.response?.data?.message || err.message || "Đã xảy ra lỗi khi tạo bài thi.");
+            toast.error(err.response?.data?.message || err.message || "Đã xảy ra lỗi khi tạo bài thi.");
         } finally {
             setIsLoading(false);
         }
@@ -82,7 +81,6 @@ const QuizBox = ({ classroomId }) => {
             </div>
 
             <div className="card-body p-4 p-md-5 bg-light bg-opacity-50">
-                {error && <div className="alert alert-danger shadow-sm border-0 rounded-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{error}</div>}
                 
                 {isLoading && (
                     <div className="text-center py-5">
@@ -162,7 +160,7 @@ const QuizBox = ({ classroomId }) => {
                     </div>
                 )}
                 
-                {!isLoading && quiz.length === 0 && !error && (
+                {!isLoading && quiz.length === 0 && (
                     <div className="text-center text-muted py-5">
                         <div className="bg-white rounded-circle d-inline-flex p-4 mb-4 shadow-sm border border-light">
                             <i className="bi bi-magic display-4 text-success opacity-50"></i>

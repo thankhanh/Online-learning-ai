@@ -7,11 +7,11 @@ import Button from '../components/ui/Button';
 
 const Dashboard = ({ user, onLogout }) => {
     return (
-        <div className="min-vh-100 bg-dark text-white">
+        <div className="min-vh-100 text-white">
 
 
             {/* Main Content */}
-            <main className="container py-5">
+            <main className="container py-1">
                 {user.role === 'lecturer' ? (
                     <LecturerDashboard user={user} />
                 ) : (

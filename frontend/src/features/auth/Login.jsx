@@ -2,6 +2,7 @@ import { useState } from 'react';
 import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
@@ -11,7 +12,6 @@ const Login = ({ onLoginSuccess }) => {
         email: '',
         password: ''
     });
-    const [error, setError] = useState('');
 
     const { email, password } = formData;
 
@@ -24,7 +24,7 @@ const Login = ({ onLoginSuccess }) => {
             localStorage.setItem('token', res.data.token);
             onLoginSuccess(res.data.user);
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed');
+            toast.error(err.response?.data?.message || 'Đăng nhập thất bại');
         }
     };
 
@@ -55,16 +55,6 @@ const Login = ({ onLoginSuccess }) => {
                         </h2>
                         <p className="text-muted" style={{ fontSize: '0.95rem' }}>Đăng nhập vào hệ thống học tập AI</p>
                     </div>
-
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="alert alert-danger border-0 shadow-sm text-center mb-4 py-2 small fw-500 rounded-3 text-danger bg-danger bg-opacity-10"
-                        >
-                            {error}
-                        </motion.div>
-                    )}
 
                     <form onSubmit={onSubmit} className="d-flex flex-column gap-3">
                         <div>

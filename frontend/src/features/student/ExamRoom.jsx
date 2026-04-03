@@ -4,6 +4,7 @@ import { Container, Row, Col, Card, Button, Modal, Form, Badge, ProgressBar } fr
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../utils/api';
 import socket from '../../utils/socket';
+import toast from 'react-hot-toast';
 
 export default function ExamRoom() {
     const { id: examId } = useParams();
@@ -32,7 +33,7 @@ export default function ExamRoom() {
                 setMaxViolations(res.data.exam.maxViolations || 3);
             }
         } catch (err) {
-            alert('Không thể tải đề thi: ' + (err.response?.data?.message || err.message));
+            toast.error('Không thể tải đề thi: ' + (err.response?.data?.message || err.message));
             navigate('/exams');
         } finally {
             setLoading(false);
@@ -140,13 +141,13 @@ export default function ExamRoom() {
             if (res.data.success) {
                 if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
                 if (!isAuto) {
-                    alert(`Nộp bài thành công! Điểm của bạn: ${res.data.score}/10 (${res.data.correctCount}/${res.data.totalQuestions} câu đúng)`);
+                    toast.success(res.data.message || 'Nộp bài thành công!');
                     navigate('/exams');
                 }
             }
         } catch (err) {
             console.error('Submission error:', err);
-            alert('Lỗi khi nộp bài: ' + (err.response?.data?.message || err.message));
+            toast.error('Lỗi khi nộp bài: ' + (err.response?.data?.message || err.message));
         }
     };
 

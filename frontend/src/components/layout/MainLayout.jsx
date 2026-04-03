@@ -10,7 +10,7 @@ const MainLayout = ({ children, user, onLogout, unreadCount }) => {
             <div className="d-flex flex-grow-1 overflow-hidden">
                 <Sidebar user={user} unreadCount={unreadCount} />
                 <main className="flex-grow-1 p-0 overflow-hidden d-flex flex-column">
-                    <div className="flex-grow-1 p-4 overflow-auto custom-scrollbar">
+                    <div className="flex-grow-1 p-4 overflow-auto custom-scrollbar ">
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={window.location.pathname}

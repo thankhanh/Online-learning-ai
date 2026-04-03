@@ -6,6 +6,7 @@ import api from '../../utils/api';
 
 const LecturerDashboard = ({ user }) => {
     const [classes, setClasses] = useState([]);
+    const [statsData, setStatsData] = useState({ pendingGrading: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -14,12 +15,19 @@ const LecturerDashboard = ({ user }) => {
 
     const fetchClasses = async () => {
         try {
-            const res = await api.get('/classrooms');
-            if (res.data.success) {
-                setClasses(res.data.classrooms);
+            const [classRes, statsRes] = await Promise.all([
+                api.get('/classrooms'),
+                api.get('/exams/stats/lecturer')
+            ]);
+            
+            if (classRes.data.success) {
+                setClasses(classRes.data.classrooms);
+            }
+            if (statsRes.data.success) {
+                setStatsData({ pendingGrading: statsRes.data.pendingGrading });
             }
         } catch (err) {
-            console.error('Error fetching classes:', err.message);
+            console.error('Error fetching dashboard data:', err.message);
         } finally {
             setLoading(false);
         }
@@ -29,7 +37,7 @@ const LecturerDashboard = ({ user }) => {
     const stats = [
         { label: 'Tổng số sinh viên', value: classes.reduce((acc, c) => acc + (c.students?.length || 0), 0), icon: Users, color: 'info', bg: 'bg-info' },
         { label: 'Lớp học đang dạy', value: classes.length, icon: Book, color: 'primary', bg: 'bg-primary' },
-        { label: 'Bài chấm chờ duyệt', value: '15', icon: FileText, color: 'warning', bg: 'bg-warning' },
+        { label: 'Bài chấm chờ duyệt', value: statsData.pendingGrading, icon: FileText, color: 'warning', bg: 'bg-warning' },
     ];
 
     const quickActions = [

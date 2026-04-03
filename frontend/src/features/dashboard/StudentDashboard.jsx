@@ -7,17 +7,37 @@ import api from '../../utils/api';
 const StudentDashboard = ({ user }) => {
     const [courses, setCourses] = useState([]);
     const [exams, setExams] = useState([]);
+    const [notifications, setNotifications] = useState([]);
+    const [statsData, setStatsData] = useState({ gpa: 'N/A', examCount: 0 });
+    const [courseProgress, setCourseProgress] = useState({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [courseRes, examRes] = await Promise.all([
+                const [courseRes, examRes, notifRes, statsRes] = await Promise.all([
                     api.get('/classrooms'),
-                    api.get('/exams')
+                    api.get('/exams'),
+                    api.get('/notifications'),
+                    api.get('/exams/stats/me')
                 ]);
-                if (courseRes.data.success) setCourses(courseRes.data.classrooms);
+                if (courseRes.data.success) {
+                    setCourses(courseRes.data.classrooms);
+                    // Fetch progress for each course
+                    courseRes.data.classrooms.forEach(async (course) => {
+                        try {
+                            const pRes = await api.get(`/classrooms/${course._id}/progress`);
+                            if (pRes.data.success) {
+                                setCourseProgress(prev => ({ ...prev, [course._id]: pRes.data.progress }));
+                            }
+                        } catch (err) {
+                            console.error(`Error fetching progress for ${course._id}:`, err);
+                        }
+                    });
+                }
                 if (examRes.data.success) setExams(examRes.data.exams);
+                if (notifRes.data.success) setNotifications(notifRes.data.notifications.slice(0, 3));
+                if (statsRes.data.success) setStatsData(statsRes.data.stats);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err.message);
             } finally {
@@ -27,10 +47,28 @@ const StudentDashboard = ({ user }) => {
         fetchData();
     }, []);
 
+    const getNotifIcon = (type) => {
+        switch (type) {
+            case 'system': return <i className="bi bi-info-circle-fill"></i>;
+            case 'course': return <i className="bi bi-journal-check"></i>;
+            case 'exam': return <i className="bi bi-pencil-square"></i>;
+            default: return <i className="bi bi-bell-fill"></i>;
+        }
+    };
+
+    const getNotifBg = (type) => {
+        switch (type) {
+            case 'system': return 'bg-info border-info';
+            case 'course': return 'bg-success border-success';
+            case 'exam': return 'bg-danger border-danger';
+            default: return 'bg-primary border-primary';
+        }
+    };
+
     const stats = [
         { label: 'Khóa học đang học', value: courses.length, icon: BookOpen, color: 'primary', bg: 'bg-primary' },
         { label: 'Bài thi hiện có', value: exams.length, icon: Clock, color: 'warning', bg: 'bg-warning' },
-        { label: 'Điểm trung bình', value: 'N/A', icon: Award, color: 'success', bg: 'bg-success' },
+        { label: 'Điểm trung bình', value: statsData.gpa, icon: Award, color: 'success', bg: 'bg-success' },
     ];
 
     return (
@@ -112,10 +150,10 @@ const StudentDashboard = ({ user }) => {
                                         </p>
                                         <div className="d-flex align-items-center bg-light p-2 rounded-3">
                                             <small className="text-muted fw-600 me-2" style={{ fontSize: '0.75rem' }}>TIẾN ĐỘ</small>
-                                            <ProgressBar now={0} className="flex-grow-1 mx-2 bg-white" style={{ height: '8px' }}>
-                                                <ProgressBar variant="primary" now={0} />
+                                            <ProgressBar now={courseProgress[course._id] || 0} className="flex-grow-1 mx-2 bg-white" style={{ height: '8px' }}>
+                                                <ProgressBar variant="primary" now={courseProgress[course._id] || 0} />
                                             </ProgressBar>
-                                            <small className="text-primary fw-800">0%</small>
+                                            <small className="text-primary fw-800">{courseProgress[course._id] || 0}%</small>
                                         </div>
                                     </div>
                                 </div>
@@ -177,44 +215,44 @@ const StudentDashboard = ({ user }) => {
                     </Card>
 
                     {/* Quick Notifications */}
-                    <Card className="bg-white border-0 shadow-sm rounded-4">
-                        <Card.Header className="bg-white border-bottom-0 pt-4 pb-2 px-4">
+                    <Card className="bg-white border-0 shadow-sm rounded-4 h-100">
+                        <Card.Header className="bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
                             <h6 className="fw-800 text-dark mb-0 d-flex align-items-center">
                                 <div className="bg-primary bg-opacity-10 text-primary rounded-circle p-1 me-2" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Bell size={16} />
                                 </div>
                                 Thông báo mới
                             </h6>
+                            {notifications.length > 0 && <Badge bg="danger" pill className="fw-bold px-2 py-1" style={{ fontSize: '0.65rem' }}>{notifications.filter(n => !n.read).length} MỚI</Badge>}
                         </Card.Header>
                         <Card.Body className="p-4 pt-2">
                             <ul className="list-unstyled mb-0">
-                                <li className="mb-3 p-3 rounded-4 border border-info border-opacity-25 bg-info bg-opacity-10">
-                                    <div className="d-flex align-items-start">
-                                        <div className="bg-white p-2 text-info rounded-circle shadow-sm me-3 mt-1" style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <i className="bi bi-info-circle-fill"></i>
-                                        </div>
-                                        <div>
-                                            <h6 className="mb-1 fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Bảo trì hệ thống</h6>
-                                            <p className="text-secondary mb-1 fw-500" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>Hệ thống sẽ được nâng cấp phiên bản định kì vào 12:00 PM ngày mai.</p>
-                                            <small className="text-muted fw-bold" style={{ fontSize: '0.65rem' }}>2 GIỜ TRƯỚC</small>
-                                        </div>
+                                {notifications.length > 0 ? (
+                                    notifications.map((notif, idx) => (
+                                        <li key={notif._id || idx} className={`mb-3 p-3 rounded-4 border border-opacity-25 transition-fast hover-bg-light ${getNotifBg(notif.type)} bg-opacity-10`}>
+                                            <div className="d-flex align-items-start">
+                                                <div className="bg-white p-2 rounded-circle shadow-sm me-3 mt-1 d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
+                                                    <span className={`text-${notif.type === 'system' ? 'info' : notif.type === 'course' ? 'success' : notif.type === 'exam' ? 'danger' : 'primary'}`}>
+                                                        {getNotifIcon(notif.type)}
+                                                    </span>
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <h6 className="mb-1 fw-800 text-dark text-truncate" style={{ fontSize: '0.9rem' }}>{notif.title}</h6>
+                                                    <p className="text-secondary mb-1 fw-500 text-truncate-2" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>{notif.content}</p>
+                                                    <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>{new Date(notif.createdAt).toLocaleDateString('vi-VN')}</small>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 opacity-50">
+                                        <i className="bi bi-bell-slash fs-3 mb-2 d-block"></i>
+                                        <small className="fw-600">Không có thông báo mới nào</small>
                                     </div>
-                                </li>
-                                <li className="p-3 rounded-4 border border-success border-opacity-25 bg-success bg-opacity-10">
-                                    <div className="d-flex align-items-start">
-                                        <div className="bg-white p-2 text-success rounded-circle shadow-sm me-3 mt-1" style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <i className="bi bi-check-circle-fill"></i>
-                                        </div>
-                                        <div>
-                                            <h6 className="mb-1 fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Kết quả bài tập</h6>
-                                            <p className="text-secondary mb-1 fw-500" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>Bài tập "Linear Regression" của bạn đã được giảng viên chấm điểm.</p>
-                                            <small className="text-muted fw-bold" style={{ fontSize: '0.65rem' }}>5 GIỜ TRƯỚC</small>
-                                        </div>
-                                    </div>
-                                </li>
+                                )}
                             </ul>
-                            <div className="text-center mt-3 pt-3">
-                                <Link to="/notifications" className="btn btn-light w-100 rounded-pill text-primary fw-bold text-decoration-none shadow-sm" style={{ fontSize: '0.85rem' }}>
+                            <div className="text-center mt-auto pt-3">
+                                <Link to="/notifications" className="btn btn-light w-100 rounded-pill text-primary fw-bold text-decoration-none shadow-sm transition-fast hover-bg-primary hover-text-white" style={{ fontSize: '0.85rem' }}>
                                     Xem tất cả <i className="bi bi-arrow-right ms-1"></i>
                                 </Link>
                             </div>

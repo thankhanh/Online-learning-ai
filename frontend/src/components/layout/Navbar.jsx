@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Bell } from 'lucide-react';
 
 const Navbar = ({ user, onLogout, unreadCount }) => {
     const location = useLocation();
@@ -45,19 +46,19 @@ const Navbar = ({ user, onLogout, unreadCount }) => {
                         </div>
 
                         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                            <Link to="/notifications" className="position-relative d-flex align-items-center justify-content-center bg-light rounded-circle shadow-sm" style={{ width: '40px', height: '40px', color: 'var(--text-main)' }}>
-                                <i className="bi bi-bell fs-5"></i>
+                            <Link to="/notifications" className="position-relative d-flex align-items-center justify-content-center bg-white border border-light rounded-circle shadow-sm transition-fast hover-bg-light" style={{ width: '42px', height: '42px', color: 'var(--text-main)' }}>
+                                <Bell size={20} />
                                 {unreadCount > 0 && (
-                                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" style={{ fontSize: '0.6rem', padding: '0.25rem 0.4rem' }}>
-                                        {unreadCount}
+                                    <span className="position-absolute translate-middle badge rounded-pill bg-danger border border-2 border-white" style={{ top: '8px', right: '-4px', fontSize: '0.65rem', padding: '0.25rem 0.4rem', boxShadow: '0 2px 5px rgba(220, 53, 69, 0.4)' }}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
                                     </span>
                                 )}
                             </Link>
                         </motion.div>
                         
                         <div className="d-flex align-items-center gap-3 ms-2 ps-3 border-start">
-                            <div className="d-flex align-items-center gap-3">
-                                <div className="text-end d-none d-lg-block">
+                            <Link to="/profile" className="d-flex align-items-center gap-3 text-decoration-none">
+                                <div className="text-end d-none d-lg-block text-dark">
                                     <div className="fw-bold" style={{ fontSize: '0.9rem', lineHeight: '1' }}>{user.displayName || user.name}</div>
                                     <div className="text-primary fw-600" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{user.role}</div>
                                 </div>
@@ -68,7 +69,7 @@ const Navbar = ({ user, onLogout, unreadCount }) => {
                                 >
                                     <i className="bi bi-person-fill fs-4"></i>
                                 </motion.div>
-                            </div>
+                            </Link>
                             
                             <motion.button 
                                 whileHover={{ scale: 1.05, backgroundColor: '#fff' }} 

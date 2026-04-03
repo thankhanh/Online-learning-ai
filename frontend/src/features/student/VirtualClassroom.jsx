@@ -11,7 +11,7 @@ const VideoStream = ({ stream, muted = false }) => {
         if (ref.current && stream) {
             ref.current.srcObject = stream;
         }
-    }, [stream]);
+    }, [stream, stream?.id]); // Re-assign if stream ID changes
 
     return (
         <video
@@ -41,7 +41,9 @@ export default function VirtualClassroom() {
     const [cameraError, setCameraError] = useState('');
     const [pinnedPeerId, setPinnedPeerId] = useState(null); // null or peerID
     const [remoteStreams, setRemoteStreams] = useState({}); // { peerID: stream }
-
+    const [sharingUserId, setSharingUserId] = useState(null); // ID of user who is currently sharing screen
+    const [localStream, setLocalStream] = useState(null); // State for the local stream rendering
+    const [className, setClassName] = useState('');
 
 
     // Controls state
@@ -50,9 +52,9 @@ export default function VirtualClassroom() {
     const [isScreenSharing, setIsScreenSharing] = useState(false);
 
     const socketRef = useRef();
-    const userVideo = useRef();
     const peersRef = useRef([]);
-    const streamRef = useRef();
+    const streamRef = useRef(); // Original camera stream
+    const activeStreamRef = useRef(); // Currently broadcasting stream (camera or screen)
     const screenTrackRef = useRef(null);
 
 
@@ -60,10 +62,22 @@ export default function VirtualClassroom() {
     const currentUser = JSON.parse(localStorage.getItem('user')) || { username: 'Guest_' + Math.floor(Math.random() * 100) };
 
     useEffect(() => {
+        if (classId && classId !== 'demo-class') {
+            api.get(`/classrooms/${classId}`)
+                .then(res => {
+                    if (res.data.success && res.data.classroom) {
+                        setClassName(res.data.classroom.name);
+                    }
+                })
+                .catch(err => console.error('Error fetching classroom info:', err));
+        }
+    }, [classId]);
+
+    useEffect(() => {
         let isMounted = true;
         const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
         socketRef.current = socket;
-        let localStream = null;
+        let localStreamTemp = null;
 
         const myName = currentUser.name || currentUser.username || 'Khách';
 
@@ -98,30 +112,57 @@ export default function VirtualClassroom() {
                 return;
             }
 
-            localStream = stream;
+            localStreamTemp = stream;
             streamRef.current = stream;
-            if (userVideo.current) {
-                userVideo.current.srcObject = stream;
-            }
+            activeStreamRef.current = stream;
+            setLocalStream(stream);
 
-            socket.emit("join-class", { classId, username: myName });
+            socket.emit("join-class", { classId, username: myName, role: currentUser.role });
 
             socket.on("all-users", users => {
                 const newPeers = [];
                 users.forEach(userObj => {
-                    const peer = createPeer(userObj.id, socket.id, stream, socket, myName);
+                    const peer = createPeer(userObj.id, socket.id, activeStreamRef.current, socket, myName);
                     peer.on("stream", remoteStream => {
                         setRemoteStreams(prev => ({ ...prev, [userObj.id]: remoteStream }));
                     });
-                    peersRef.current.push({ peerID: userObj.id, username: userObj.username, peer });
-                    newPeers.push({ peerID: userObj.id, username: userObj.username, peer });
+                    peersRef.current.push({ peerID: userObj.id, username: userObj.username, role: userObj.role, isSharing: userObj.isSharing, peer });
+                    newPeers.push({ peerID: userObj.id, username: userObj.username, role: userObj.role, isSharing: userObj.isSharing, peer });
+
+                    // Auto-pin lecturer or screen share
+                    if (userObj.isSharing) {
+                        setSharingUserId(userObj.id);
+                        setPinnedPeerId(userObj.id);
+                    } else if (userObj.role === 'lecturer' && !newPeers.some(p => p.isSharing)) {
+                        setPinnedPeerId(userObj.id);
+                    }
                 });
 
                 setPeers(newPeers);
             });
 
             socket.on("user-connected", userObj => {
-                console.log("User connected", userObj.username);
+                // If the new user is a lecturer and no one is sharing, pin them
+                if (userObj.role === 'lecturer' && !sharingUserId) {
+                    setPinnedPeerId(userObj.id);
+                }
+            });
+
+            socket.on("screen-share-status", data => {
+                if (data.isSharing) {
+                    setSharingUserId(data.userID);
+                    setPinnedPeerId(data.userID); // Auto-pin when someone shares
+                } else {
+                    setSharingUserId(null);
+                    // If shared user was pinned, maybe reset to lecturer?
+                    setPinnedPeerId(prev => {
+                        if (prev === data.userID) {
+                            const lecturer = peersRef.current.find(p => p.role === 'lecturer');
+                            return lecturer ? lecturer.peerID : null;
+                        }
+                        return prev;
+                    });
+                }
             });
 
             socket.on("webrtc-offer", payload => {
@@ -130,13 +171,17 @@ export default function VirtualClassroom() {
                     existing.peer.signal(payload.signal);
                     return;
                 }
-                const peer = addPeer(payload.signal, payload.callerID, stream, socket);
+                const peer = addPeer(payload.signal, payload.callerID, activeStreamRef.current, socket);
                 peer.on("stream", remoteStream => {
                     setRemoteStreams(prev => ({ ...prev, [payload.callerID]: remoteStream }));
                 });
-                peersRef.current.push({ peerID: payload.callerID, username: payload.callerName, peer });
-                setPeers(users => [...users, { peerID: payload.callerID, username: payload.callerName, peer }]);
+                peersRef.current.push({ peerID: payload.callerID, username: payload.callerName, role: payload.role || 'student', isSharing: payload.isSharing || false, peer });
+                setPeers(users => [...users, { peerID: payload.callerID, username: payload.callerName, role: payload.role || 'student', isSharing: payload.isSharing || false, peer }]);
 
+                if (payload.isSharing) {
+                    setSharingUserId(payload.callerID);
+                    setPinnedPeerId(payload.callerID);
+                }
             });
 
             socket.on("webrtc-answer", payload => {
@@ -173,7 +218,7 @@ export default function VirtualClassroom() {
         });
 
         peer.on("signal", signal => {
-            socketInstance.emit("webrtc-offer", { userToSignal, callerID, callerName, signal });
+            socketInstance.emit("webrtc-offer", { userToSignal, callerID, callerName, role: currentUser.role, isSharing: isScreenSharing, signal });
         });
 
         return peer;
@@ -281,12 +326,26 @@ export default function VirtualClassroom() {
     };
 
     const toggleScreenShare = async () => {
+        if (currentUser.role !== 'lecturer') {
+            toast.error('Chỉ giảng viên mới có quyền chia sẻ màn hình.');
+            return;
+        }
+
         if (!isScreenSharing) {
             try {
                 const screenStream = await navigator.mediaDevices.getDisplayMedia({ cursor: true });
                 setIsScreenSharing(true);
                 const screenVideoTrack = screenStream.getVideoTracks()[0];
                 screenTrackRef.current = screenVideoTrack;
+
+                // Create a new active stream to share to late joiners
+                const newActiveStream = new MediaStream([screenVideoTrack]);
+                const audioTracks = streamRef.current.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    newActiveStream.addTrack(audioTracks[0]);
+                }
+                activeStreamRef.current = newActiveStream;
+                setLocalStream(newActiveStream);
 
                 peersRef.current.forEach(peerObj => {
                     const currentVideoTrack = streamRef.current.getVideoTracks()[0];
@@ -295,13 +354,12 @@ export default function VirtualClassroom() {
                     }
                 });
 
-                if (userVideo.current) {
-                    userVideo.current.srcObject = screenStream;
-                }
-
                 screenVideoTrack.onended = () => {
                     stopScreenShare();
                 };
+
+                // Notify others
+                socketRef.current.emit('screen-share-status', { classId, isSharing: true });
             } catch (err) {
                 console.error("Screen sharing failed", err);
             }
@@ -314,20 +372,22 @@ export default function VirtualClassroom() {
         const currentVideoTrack = streamRef.current.getVideoTracks()[0];
         const screenTrack = screenTrackRef.current;
 
+        activeStreamRef.current = streamRef.current;
+        setLocalStream(streamRef.current);
+
         peersRef.current.forEach(peerObj => {
             if (screenTrack && currentVideoTrack) {
-                peerObj.peer.replaceTrack(screenTrack, currentVideoTrack, streamRef.current);
+                peerObj.peer.replaceTrack(screenTrack, currentVideoTrack, activeStreamRef.current);
             }
         });
 
-        if (userVideo.current) {
-            userVideo.current.srcObject = streamRef.current;
-        }
         if (screenTrack) {
             screenTrack.stop();
             screenTrackRef.current = null;
         }
         setIsScreenSharing(false);
+        // Notify others
+        socketRef.current.emit('screen-share-status', { classId, isSharing: false });
     }
 
     return (
@@ -335,7 +395,7 @@ export default function VirtualClassroom() {
             <div className="classroom-header p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center z-2">
                 <div className="d-flex align-items-center">
                     <Button variant="light" size="sm" className="me-3 fw-bold text-secondary shadow-sm" onClick={() => navigate('/dashboard')}><i className="bi bi-arrow-left"></i> Thoát</Button>
-                    <h5 className="m-0 fw-800 text-dark">Lớp {classId}</h5>
+                    <h5 className="m-0 fw-800 text-dark">Lớp {className || classId}</h5>
                 </div>
                 <div>
                     <Badge bg="danger" className="me-2 animate-pulse px-3 py-2 rounded-pill shadow-sm">🔴 LIVE</Badge>
@@ -352,13 +412,12 @@ export default function VirtualClassroom() {
                                 <small className="text-muted">Vui lòng cấp quyền Camera/Mic trên trình duyệt (hiển thị ổ khóa trên thanh URL) hoặc cắm camera và tải lại trang (F5).</small>
                             </div>
                         ) : null}
-                        
+
                         {pinnedPeerId && remoteStreams[pinnedPeerId] ? (
                             <VideoStream stream={remoteStreams[pinnedPeerId]} />
                         ) : (
-                            <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-dark" />
+                            <VideoStream stream={localStream} muted={true} />
                         )}
-
 
                         <div className="position-absolute bottom-0 start-50 translate-middle-x mb-4 p-2 bg-white rounded-pill shadow-lg d-flex gap-3 border">
                             <Button variant={isAudioOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isAudioOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleAudio}>
@@ -367,22 +426,24 @@ export default function VirtualClassroom() {
                             <Button variant={isVideoOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isVideoOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleVideo}>
                                 <i className={`bi bi-camera-video${isVideoOn ? '' : '-off-fill'} fs-5`}></i>
                             </Button>
-                            <Button variant={isScreenSharing ? "primary" : "light"} className={`rounded-circle shadow-sm ${isScreenSharing ? '' : 'text-primary'}`} style={{ width: '45px', height: '45px' }} onClick={toggleScreenShare}>
-                                <i className="bi bi-display fs-5"></i>
-                            </Button>
+                            {currentUser.role === 'lecturer' && (
+                                <Button variant={isScreenSharing ? "primary" : "light"} className={`rounded-circle shadow-sm ${isScreenSharing ? '' : 'text-primary'}`} style={{ width: '45px', height: '45px' }} onClick={toggleScreenShare}>
+                                    <i className="bi bi-display fs-5"></i>
+                                </Button>
+                            )}
                             <Button variant="danger" className="rounded-circle shadow-sm" style={{ width: '45px', height: '45px' }} onClick={() => navigate('/dashboard')}>
                                 <i className="bi bi-telephone-x-fill fs-5"></i>
                             </Button>
                         </div>
                         <div className="position-absolute top-0 start-0 m-3 p-2 bg-white bg-opacity-75 rounded-pill small d-flex align-items-center shadow-sm backdrop-blur">
                             <span className="fw-800 me-2 text-dark">
-                                {pinnedPeerId && peers.find(p => p.peerID === pinnedPeerId) 
-                                    ? peers.find(p => p.peerID === pinnedPeerId).username 
+                                {pinnedPeerId && peers.find(p => p.peerID === pinnedPeerId)
+                                    ? peers.find(p => p.peerID === pinnedPeerId).username
                                     : (currentUser.name || currentUser.username || 'Khách')}
                             </span>
-                            <Badge bg={pinnedPeerId ? "info" : (currentUser.role === 'lecturer' ? "danger" : "secondary")} className="rounded-pill">
-                                {pinnedPeerId 
-                                    ? "Đã ghim" 
+                            <Badge bg={pinnedPeerId ? (peers.find(p => p.peerID === pinnedPeerId)?.role === 'lecturer' ? "danger" : "info") : (currentUser.role === 'lecturer' ? "danger" : "secondary")} className="rounded-pill">
+                                {pinnedPeerId
+                                    ? (sharingUserId === pinnedPeerId ? "Đang chia sẻ màn hình" : "Đã ghim")
                                     : (currentUser.role === 'lecturer' ? 'Giảng viên' : 'Học viên') + " (Bạn)"}
                             </Badge>
                             {pinnedPeerId && (
@@ -393,30 +454,30 @@ export default function VirtualClassroom() {
                         </div>
                     </div>
 
-
                     <div className="d-flex gap-2 overflow-auto custom-scrollbar pb-2" style={{ height: '160px' }}>
-                        {peers.map((peerObj) => (
+                        {peers.filter(p => p.peerID !== pinnedPeerId).map((peerObj) => (
                             <div key={peerObj.peerID} className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
                                 <VideoStream stream={remoteStreams[peerObj.peerID]} />
                                 <div className="position-absolute top-0 end-0 m-2">
-                                    <Button 
-                                        variant="light" 
-                                        size="sm" 
+                                    <Button
+                                        variant="light"
+                                        size="sm"
                                         className="bg-white bg-opacity-75 p-1 rounded-circle shadow-sm" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         onClick={() => setPinnedPeerId(pinnedPeerId === peerObj.peerID ? null : peerObj.peerID)}
                                     >
                                         <i className={`bi bi-pin-angle${pinnedPeerId === peerObj.peerID ? '-fill text-primary' : ' text-secondary'}`}></i>
                                     </Button>
                                 </div>
-                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur">
-                                    {peerObj.username}
+                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur d-flex justify-content-between align-items-center">
+                                    <span>{peerObj.username} {peerObj.role === 'lecturer' && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.6rem' }}>GV</Badge>}</span>
+                                    {sharingUserId === peerObj.peerID && <Badge bg="primary" style={{ fontSize: '0.6rem' }}><i className="bi bi-display me-1"></i>LIVE</Badge>}
                                 </div>
                             </div>
                         ))}
                         {/* Always show own video as thumbnail if someone else is pinned */}
                         {pinnedPeerId && (
                             <div className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
-                                <video playsInline muted autoPlay ref={userVideo} className="w-100 h-100 object-fit-cover bg-dark" />
+                                <VideoStream stream={localStream} muted={true} />
                                 <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur">
                                     Bạn
                                 </div>
