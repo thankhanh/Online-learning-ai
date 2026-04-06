@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Clock, PlayCircle, Award, Calendar, Bell } from 'lucide-react';
-import { Card, Row, Col, Button, Badge, ProgressBar } from 'react-bootstrap';
+import { BookOpen, Clock, PlayCircle, Award, Calendar, Bell, TrendingUp } from 'lucide-react';
+import { Card, Row, Col, Button, Badge, ProgressBar, Spinner } from 'react-bootstrap';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
+
 
 const StudentDashboard = ({ user }) => {
     const [courses, setCourses] = useState([]);
     const [exams, setExams] = useState([]);
     const [notifications, setNotifications] = useState([]);
     const [statsData, setStatsData] = useState({ gpa: 'N/A', examCount: 0 });
+    const [chartData, setChartData] = useState([]);
     const [courseProgress, setCourseProgress] = useState({});
     const [loading, setLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -44,7 +49,21 @@ const StudentDashboard = ({ user }) => {
                 setLoading(false);
             }
         };
+        const fetchChartStats = async () => {
+            try {
+                const res = await api.get('/dashboard/stats');
+                if (res.data.success) {
+                    setChartData(res.data.stats.examPerformance || []);
+                }
+            } catch (err) {
+                console.error('Error fetching chart stats:', err);
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+
         fetchData();
+        fetchChartStats();
     }, []);
 
     const getNotifIcon = (type) => {
@@ -82,9 +101,11 @@ const StudentDashboard = ({ user }) => {
                         <Button variant="light" className="text-primary fw-bold px-4 rounded-pill shadow-sm">
                             <i className="bi bi-play-circle-fill me-2"></i> Tiếp tục học
                         </Button>
-                        <Button variant="outline-light" className="fw-bold px-4 rounded-pill">
-                            Xem lịch học
-                        </Button>
+                        <Link to="/schedule">
+                            <Button variant="outline-light" className="fw-bold px-4 rounded-pill">
+                                Xem lịch học
+                            </Button>
+                        </Link>
                     </div>
                 </div>
                 {/* Decorative Pattern */}
@@ -110,6 +131,56 @@ const StudentDashboard = ({ user }) => {
                         </Card>
                     </Col>
                 ))}
+            </Row>
+
+            <Row className="g-4 mb-5">
+                {/* Performance Chart */}
+                <Col lg={12}>
+                    <Card className="border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                        <Card.Header className="bg-white border-0 pt-4 px-4 pb-0">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <h5 className="fw-900 text-dark mb-0 d-flex align-items-center">
+                                    <div className="bg-info bg-opacity-10 text-info rounded-circle p-2 me-2" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <TrendingUp size={20} />
+                                    </div>
+                                    Thống kê kết quả học tập
+                                </h5>
+                                <Badge bg="light" className="text-muted fw-bold border px-3 py-2 rounded-pill">Hiệu suất 30 ngày qua</Badge>
+                            </div>
+                        </Card.Header>
+                        <Card.Body className="p-4" style={{ height: '350px' }}>
+                            {statsLoading ? (
+                                <div className="h-100 d-flex align-items-center justify-content-center">
+                                    <Spinner animation="border" variant="info" />
+                                </div>
+                            ) : chartData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} dy={10} />
+                                        <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '12px', border: 'none', shadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                            cursor={{ stroke: '#3b82f6', strokeWidth: 2 }}
+                                        />
+                                        <Area type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
+                                    <i className="bi bi-graph-up fs-1 mb-2"></i>
+                                    <p className="fw-500">Chưa có đủ dữ liệu để hiển thị biểu đồ.</p>
+                                </div>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
             </Row>
 
             <Row className="g-4">
@@ -192,25 +263,68 @@ const StudentDashboard = ({ user }) => {
                                     <i className="bi bi-calendar-check fs-2 text-muted d-block mb-2 opacity-50"></i>
                                     <p className="text-muted small fw-500 m-0">Tuyệt vời! Không có bài thi nào sắp tới</p>
                                 </div>
-                            ) : exams.slice(0, 3).map(exam => (
-                                <div key={exam._id} className="d-flex align-items-center mb-3 p-3 rounded-4 bg-light border border-white shadow-sm transition-fast hover-shadow">
-                                    <div className="me-3 text-center bg-white rounded-3 p-2 shadow-sm border border-danger border-opacity-10" style={{ minWidth: '60px' }}>
-                                        <h4 className="mb-0 fw-800 text-danger" style={{ letterSpacing: '-0.05em' }}>{exam.duration}</h4>
-                                        <div className="text-muted fw-bold" style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>phút</div>
+                            ) : exams.slice(0, 3).map(exam => {
+                                const now = new Date();
+                                const start = exam.startTime ? new Date(exam.startTime) : null;
+                                const end = exam.endTime ? new Date(exam.endTime) : null;
+                                
+                                let status = 'available';
+                                let statusText = '';
+                                
+                                if (start && now < start) {
+                                    status = 'upcoming';
+                                    const diffMs = start - now;
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    statusText = diffHours > 0 ? `Bắt đầu sau ${diffHours}h ${diffMins}p` : `Bắt đầu sau ${diffMins}p`;
+                                } else if (end && now > end) {
+                                    status = 'ended';
+                                    statusText = 'Đã kết thúc';
+                                }
+
+                                return (
+                                    <div key={exam._id} className="d-flex align-items-center mb-3 p-3 rounded-4 bg-light border border-white shadow-sm transition-fast hover-shadow">
+                                        <div className="me-3 text-center bg-white rounded-3 p-2 shadow-sm border border-danger border-opacity-10" style={{ minWidth: '60px' }}>
+                                            <h4 className="mb-0 fw-800 text-danger" style={{ letterSpacing: '-0.05em' }}>{exam.duration}</h4>
+                                            <div className="text-muted fw-bold" style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>phút</div>
+                                        </div>
+                                        <div className="flex-grow-1 overflow-hidden">
+                                            <h6 className="mb-1 fw-bold text-dark text-truncate" style={{ fontSize: '0.95rem' }}>{exam.title}</h6>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <small className="text-muted d-block text-truncate fw-500" style={{ fontSize: '0.8rem' }}>
+                                                    <i className="bi bi-journal-text me-1"></i> {exam.classroom?.name}
+                                                </small>
+                                                {status !== 'available' && (
+                                                    <Badge bg={status === 'upcoming' ? 'info' : 'secondary'} className="bg-opacity-10 text-uppercase" style={{ fontSize: '0.6rem', color: status === 'upcoming' ? '#0dcaf0' : '#6c757d' }}>
+                                                        {statusText}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {status === 'available' ? (
+                                            <Link to={`/exam-room/${exam._id}`} className="ms-2">
+                                                <Button variant="danger" size="sm" className="rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #dc3545, #fd7e14)', border: 'none' }}>
+                                                    <i className="bi bi-play-fill fs-5 text-white" style={{ marginLeft: '2px' }}></i>
+                                                </Button>
+                                            </Link>
+                                        ) : (
+                                            <Button 
+                                                variant="light" 
+                                                size="sm" 
+                                                className="rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm border ms-2 bg-white text-muted opacity-50" 
+                                                style={{ width: '36px', height: '36px' }}
+                                                onClick={() => {
+                                                    if (status === 'upcoming') toast.error(`Kỳ thi này chưa bắt đầu. ${statusText}`);
+                                                    else toast.error("Kỳ thi này đã kết thúc.");
+                                                }}
+                                            >
+                                                <i className="bi bi-lock-fill fs-6"></i>
+                                            </Button>
+                                        )}
                                     </div>
-                                    <div className="flex-grow-1 overflow-hidden">
-                                        <h6 className="mb-1 fw-bold text-dark text-truncate" style={{ fontSize: '0.95rem' }}>{exam.title}</h6>
-                                        <small className="text-muted d-block text-truncate fw-500" style={{ fontSize: '0.8rem' }}>
-                                            <i className="bi bi-journal-text me-1"></i> {exam.classroom?.name}
-                                        </small>
-                                    </div>
-                                    <Link to={`/exam-room/${exam._id}`} className="ms-2">
-                                        <Button variant="danger" size="sm" className="rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #dc3545, #fd7e14)', border: 'none' }}>
-                                            <i className="bi bi-play-fill fs-5 text-white" style={{ marginLeft: '2px' }}></i>
-                                        </Button>
-                                    </Link>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </Card.Body>
                     </Card>
 

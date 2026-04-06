@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Badge, Tab, Tabs, Row, Col, ListGroup, Accordion, Spinner } from 'react-bootstrap';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Button, Badge, Tab, Tabs, Row, Col, ListGroup, Accordion, Spinner, Form, InputGroup } from 'react-bootstrap';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import toast from 'react-hot-toast';
 import api from '../../utils/api';
+import PdfModal from '../../components/ui/PdfModal';
 
 export default function LearningCenter() {
     const [documents, setDocuments] = useState([]);
@@ -9,6 +13,29 @@ export default function LearningCenter() {
 
     const [chatLogs, setChatLogs] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+
+    // AI Chat States (Split-pane)
+    const [selectedDoc, setSelectedDoc] = useState(null);
+    const [chatHistory, setChatHistory] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [showChat, setShowChat] = useState(false);
+    const [isTyping, setIsTyping] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // PDF Modal states
+    const [showPdfModal, setShowPdfModal] = useState(false);
+    const [previewPdfUrl, setPreviewPdfUrl] = useState('');
+    const [previewPdfTitle, setPreviewPdfTitle] = useState('');
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        if (showChat) {
+            scrollToBottom();
+        }
+    }, [chatHistory, isTyping, showChat]);
 
     useEffect(() => {
         fetchMaterials();
@@ -65,7 +92,70 @@ export default function LearningCenter() {
         } catch (err) {
             console.error('Error marking material as viewed:', err);
         }
-        window.open(getFullUrl(doc.fileUrl), '_blank');
+        
+        if (doc.fileUrl.toLowerCase().endsWith('.pdf')) {
+            setPreviewPdfUrl(doc.fileUrl);
+            setPreviewPdfTitle(doc.title);
+            setShowPdfModal(true);
+        } else {
+            window.open(getFullUrl(doc.fileUrl), '_blank');
+        }
+    };
+
+    const handleOpenChat = async (doc) => {
+        setSelectedDoc(doc);
+        setChatHistory([]);
+        setShowChat(true);
+
+        try {
+            const res = await api.get(`/ai/history?materialId=${doc._id}`);
+            if (res.data.success) {
+                const mappedHistory = res.data.history.flatMap(h => [
+                    { sender: 'user', message: h.question },
+                    { sender: 'ai', message: h.answer }
+                ]);
+                setChatHistory(mappedHistory);
+            }
+        } catch (err) {
+            console.error('Error fetching chat history:', err);
+            toast.error('Không thể tải lịch sử hỏi đáp.');
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (!chatInput.trim() || !selectedDoc) return;
+        
+        const userMsg = { sender: 'user', message: chatInput };
+        setChatHistory(prev => [...prev, userMsg]);
+        setChatInput('');
+        setIsTyping(true);
+
+        try {
+            const res = await api.post('/ai/ask', { 
+                question: userMsg.message,
+                classroomId: selectedDoc.classroom?._id || selectedDoc.classroom,
+                materialId: selectedDoc._id
+            });
+
+            if (res.data.success) {
+                setChatHistory(prev => [...prev, {
+                    sender: 'ai',
+                    message: res.data.answer
+                }]);
+            }
+        } catch (err) {
+            console.error('AI Error:', err);
+            let errMsg = 'Rất tiếc, tôi không thể kết nối. Vui lòng kiểm tra lại dịch vụ Server hoặc AI Engine.';
+            if (err.response?.data?.message) {
+                errMsg = err.response.data.message;
+            }
+            setChatHistory(prev => [...prev, {
+                sender: 'ai',
+                message: errMsg
+            }]);
+        } finally {
+            setIsTyping(false);
+        }
     };
 
     return (
@@ -88,42 +178,141 @@ export default function LearningCenter() {
                 <Col md={12}>
                     <Tabs defaultActiveKey="documents" className="mb-4 custom-tabs-premium border-0">
                         <Tab eventKey="documents" title={<span><i className="bi bi-file-earmark-text me-2"></i>Tài liệu Môn học</span>}>
-                            <Card className="border-0 shadow-sm bg-white rounded-4 overflow-hidden">
-                                {loading ? (
-                                    <div className="py-5 text-center"><Spinner animation="border" variant="primary" /></div>
-                                ) : (
-                                    <ListGroup variant="flush">
-                                        {documents.length === 0 ? (
-                                            <ListGroup.Item className="p-5 text-center text-muted fw-500">
-                                                Chưa có tài liệu nào từ các lớp học của bạn.
-                                            </ListGroup.Item>
-                                        ) : documents.map(doc => (
-                                            <ListGroup.Item key={doc._id} className="p-4 bg-white border-bottom border-light d-flex justify-content-between align-items-center hover-bg-light transition-fast">
-                                                <div className="d-flex align-items-center">
-                                                    <div className="bg-light p-3 rounded-3 me-3 text-primary shadow-sm border border-white">
-                                                        <i className={`bi ${doc.fileUrl.endsWith('.pdf') ? 'bi-file-earmark-pdf-fill text-danger' : 'bi-file-earmark-word-fill text-primary'} fs-4`}></i>
-                                                    </div>
-                                                    <div>
-                                                        <div className="fw-800 text-dark mb-1" style={{ fontSize: '1.05rem' }}>{doc.title}</div>
-                                                        <div className="d-flex align-items-center gap-2">
-                                                            <Badge bg="primary" className="bg-opacity-10 text-primary px-2 py-1 rounded-pill fw-600" style={{ fontSize: '0.7rem' }}>{doc.classroom?.name || 'Môn học'}</Badge>
-                                                            <span className="text-muted small fw-500">• {new Date(doc.createdAt).toLocaleDateString('vi-VN')}</span>
-                                                            <span className="text-muted small fw-500">• GV: {doc.uploadedBy?.name}</span>
+                            <Row>
+                                <Col md={showChat ? 5 : 12} className="transition-all">
+                                    <Card className="border-0 shadow-sm bg-white rounded-4 overflow-hidden h-100">
+                                        {loading ? (
+                                            <div className="py-5 text-center"><Spinner animation="border" variant="primary" /></div>
+                                        ) : (
+                                            <ListGroup variant="flush" className="custom-scrollbar" style={{ maxHeight: showChat ? '650px' : 'auto', overflowY: 'auto' }}>
+                                                {documents.length === 0 ? (
+                                                    <ListGroup.Item className="p-5 text-center text-muted fw-500">
+                                                        Chưa có tài liệu nào từ các lớp học của bạn.
+                                                    </ListGroup.Item>
+                                                ) : documents.map(doc => (
+                                                    <ListGroup.Item key={doc._id} className="p-4 bg-white border-bottom border-light hover-bg-light transition-fast">
+                                                        <div className="d-flex justify-content-between align-items-start mb-3">
+                                                            <div className="d-flex align-items-center">
+                                                                <div className="bg-light p-3 rounded-3 me-3 text-primary shadow-sm border border-white">
+                                                                    <i className={`bi ${doc.fileUrl.endsWith('.pdf') ? 'bi-file-earmark-pdf-fill text-danger' : 'bi-file-earmark-word-fill text-primary'} fs-4`}></i>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="fw-800 text-dark mb-1" style={{ fontSize: '1.05rem' }}>{doc.title}</div>
+                                                                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                                        <Badge bg="primary" className="bg-opacity-10 text-primary px-2 py-1 rounded-pill fw-600" style={{ fontSize: '0.7rem' }}>{doc.classroom?.name || 'Môn học'}</Badge>
+                                                                        <span className="text-muted small fw-500">• {new Date(doc.createdAt).toLocaleDateString('vi-VN')}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                                <Button 
-                                                    variant="outline-primary" 
-                                                    className="rounded-pill px-4 fw-bold shadow-sm border-2"
-                                                    onClick={() => handleViewMaterial(doc)}
-                                                >
-                                                    <i className="bi bi-download me-2"></i> Xem / Tải về
+                                                        <div className="d-flex justify-content-end gap-2 mt-3">
+                                                            <Button 
+                                                                variant={selectedDoc?._id === doc._id ? "primary" : "outline-primary"}
+                                                                size="sm"
+                                                                className="rounded-pill px-4 fw-bold shadow-sm"
+                                                                onClick={() => handleOpenChat(doc)}
+                                                            >
+                                                                <i className="bi bi-robot me-1"></i> Hỏi AI
+                                                            </Button>
+                                                            <Button 
+                                                                variant="light" 
+                                                                size="sm"
+                                                                className="rounded-pill px-4 fw-bold shadow-sm border"
+                                                                onClick={() => handleViewMaterial(doc)}
+                                                            >
+                                                                <i className="bi bi-download me-1"></i> Xem File
+                                                            </Button>
+                                                        </div>
+                                                    </ListGroup.Item>
+                                                ))}
+                                            </ListGroup>
+                                        )}
+                                    </Card>
+                                </Col>
+                                {showChat && (
+                                    <Col md={7} className="fade-in">
+                                        <Card className="h-100 shadow-sm bg-white border-0 rounded-4 overflow-hidden">
+                                            <Card.Header className="d-flex justify-content-between align-items-center border-0 px-4 py-3" style={{ background: 'linear-gradient(135deg, var(--primary-color), #4db8ff)'}}>
+                                                <h5 className="m-0 fw-800 text-white">
+                                                    <i className="bi bi-robot me-2"></i>Hỏi AI: <span className="fw-500 opacity-90">{selectedDoc?.title}</span>
+                                                </h5>
+                                                <Button variant="link" className="text-white p-0 opacity-75 hover-opacity-100" onClick={() => setShowChat(false)}>
+                                                    <i className="bi bi-x-lg fs-5"></i>
                                                 </Button>
-                                            </ListGroup.Item>
-                                        ))}
-                                    </ListGroup>
+                                            </Card.Header>
+                                            <Card.Body className="d-flex flex-column p-0" style={{ height: '650px' }}>
+                                                <div className="flex-grow-1 overflow-auto p-4 custom-scrollbar bg-light bg-opacity-50">
+                                                    {chatHistory.length === 0 && !isTyping ? (
+                                                        <div className="text-center py-5">
+                                                            <div className="bg-primary bg-opacity-10 text-primary d-inline-flex p-4 rounded-circle mb-3">
+                                                                <i className="bi bi-chat-dots fs-1"></i>
+                                                            </div>
+                                                            <h6 className="fw-700 text-dark">Bắt đầu hỏi AI về tài liệu này</h6>
+                                                            <p className="text-muted small">AI sẽ trả lời dựa trên nội dung tri thức đã học được từ file.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <AnimatePresence>
+                                                            {chatHistory.map((chat, idx) => (
+                                                                <motion.div 
+                                                                    key={idx} 
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className={`d-flex mb-4 ${chat.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
+                                                                >
+                                                                    <div className={`p-3 px-4 shadow-sm ${chat.sender === 'user' ? 'bg-primary text-white' : 'bg-white text-dark border border-light'}`} 
+                                                                         style={{ maxWidth: '85%', borderRadius: chat.sender === 'user' ? '1.5rem 1.5rem 0.25rem 1.5rem' : '1.5rem 1.5rem 1.5rem 0.25rem' }}>
+                                                                        {chat.sender === 'ai' && <div className="fw-800 text-primary small mb-2 d-flex align-items-center"><i className="bi bi-robot me-1 fs-6"></i> AI Tutor</div>}
+                                                                        <div className="fw-500 markdown-body" style={{ lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                                                            {chat.sender === 'user' ? (
+                                                                                chat.message 
+                                                                            ) : (
+                                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{chat.message}</ReactMarkdown>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            ))}
+                                                            {isTyping && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, scale: 0.9 }}
+                                                                    className="d-flex mb-4 justify-content-start"
+                                                                >
+                                                                    <div className="p-3 px-4 shadow-sm bg-white text-dark border border-light" 
+                                                                         style={{ maxWidth: '85%', borderRadius: '1.5rem 1.5rem 1.5rem 0.25rem' }}>
+                                                                        <div className="fw-800 text-primary small mb-2 d-flex align-items-center"><i className="bi bi-robot me-1 fs-6"></i> AI Tutor</div>
+                                                                        <div className="d-flex align-items-center gap-2 py-2">
+                                                                            <Spinner animation="grow" variant="primary" size="sm" />
+                                                                            <Spinner animation="grow" variant="primary" size="sm" style={{ animationDelay: '0.2s' }} />
+                                                                            <Spinner animation="grow" variant="primary" size="sm" style={{ animationDelay: '0.4s' }} />
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                            <div ref={chatEndRef} />
+                                                        </AnimatePresence>
+                                                    )}
+                                                </div>
+                                                <div className="p-4 border-top border-light bg-white">
+                                                    <InputGroup className="shadow-sm rounded-pill overflow-hidden border border-primary border-opacity-25">
+                                                        <Form.Control
+                                                            placeholder={`Hỏi về ${selectedDoc?.title}...`}
+                                                            value={chatInput}
+                                                            onChange={(e) => setChatInput(e.target.value)}
+                                                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                                            className="bg-white text-dark border-0 px-4 py-3 fw-500 shadow-none"
+                                                        />
+                                                        <Button variant="primary" onClick={handleSendMessage} className="px-4 fw-bold border-0" style={{ background: 'linear-gradient(135deg, var(--primary-color), #4db8ff)'}}>
+                                                            <i className="bi bi-send-fill fs-5"></i>
+                                                        </Button>
+                                                    </InputGroup>
+                                                </div>
+                                            </Card.Body>
+                                        </Card>
+                                    </Col>
                                 )}
-                            </Card>
+                            </Row>
                         </Tab>
 
                         <Tab eventKey="chat-history" title={<span><i className="bi bi-robot me-2"></i>Lịch sử hỏi đáp AI</span>}>
@@ -179,6 +368,13 @@ export default function LearningCenter() {
                     </Tabs>
                 </Col>
             </Row>
+
+            <PdfModal 
+                show={showPdfModal} 
+                onHide={() => setShowPdfModal(false)} 
+                pdfUrl={previewPdfUrl} 
+                title={previewPdfTitle} 
+            />
         </motion.div>
     );
 }

@@ -12,17 +12,19 @@ const Sidebar = ({ user, unreadCount = 0 }) => {
         if (user.role === 'lecturer') {
             items = [
                 { path: '/classroom-management', icon: 'bi-journal-bookmark-fill', label: 'Lớp học' },
+                { path: '/schedule', icon: 'bi-calendar3', label: 'Lịch dạy' },
                 { path: '/exam-management', icon: 'bi-card-checklist', label: 'Thi & Câu hỏi' },
                 { path: '/document-management', icon: 'bi-folder2-open', label: 'Tài liệu AI' },
             ];
         } else if (user.role === 'student') {
             items = [
-                { path: '/classroom-management', icon: 'bi-mortarboard-fill', label: 'Khóa học' },
+                { path: '/classroom-management', icon: 'bi-mortarboard-fill', label: 'Lớp học' },
                 { path: '/schedule', icon: 'bi-calendar3', label: 'Lịch học' },
                 { path: '/learning-center', icon: 'bi-robot', label: 'AI Center' },
                 { path: '/exams', icon: 'bi-clipboard-check-fill', label: 'Khảo thí' },
             ];
         } else if (user.role === 'admin') {
+
             items = [
                 { path: '/admin/users', icon: 'bi-people-fill', label: 'Tài khoản' },
                 { path: '/admin/categories', icon: 'bi-grid-3x3-gap-fill', label: 'Danh mục' },

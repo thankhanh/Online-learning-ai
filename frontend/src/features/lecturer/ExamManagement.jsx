@@ -4,7 +4,14 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import api from '../../utils/api';
 import socket from '../../utils/socket';
 import toast from 'react-hot-toast';
+<<<<<<< Updated upstream
 import axios from 'axios';
+=======
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
 export default function ExamManagement({ user }) {
     const [key, setKey] = useState('overview');
@@ -30,22 +37,48 @@ export default function ExamManagement({ user }) {
     const [resultsLoading, setResultsLoading] = useState(false);
     const [showReview, setShowReview] = useState(false);
     const [reviewData, setReviewData] = useState(null);
+    const [selectedResultClassroom, setSelectedResultClassroom] = useState('');
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
     // AI Integration States
     const [selectedFile, setSelectedFile] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState([]);
+<<<<<<< Updated upstream
     const fileInputRef = useRef(null);
     
     // Hardcoded for Demo purposes
     const mockClassroomId = "6980e7970960e0fbd8c2b675";
     const mockUserId = "6980c7970960c0fbd8c2b665";
+=======
+    const [numAiQuestions, setNumAiQuestions] = useState(10);
+    const abortControllerRef = useRef(null);
+    const fileInputRef = useRef(null);
+    
+    // Hardcoded for Demo purposes
+
+>>>>>>> Stashed changes
 
     const handleAIGenerateExam = async () => {
         if (!selectedFile) {
             toast.error("Vui lòng chọn File PDF bài giảng trước!");
             return;
         }
+<<<<<<< Updated upstream
+=======
+
+        if (!newExam.classroom) {
+            toast.error("Bạn chưa chọn lớp học nào để gán đề thi!");
+            return;
+        }
+
+        // Initialize AbortController
+        abortControllerRef.current = new AbortController();
+>>>>>>> Stashed changes
         
         setIsGenerating(true);
         setGeneratedQuiz([]);
@@ -53,6 +86,7 @@ export default function ExamManagement({ user }) {
         try {
             const formData = new FormData();
             formData.append('file', selectedFile);
+<<<<<<< Updated upstream
             formData.append('classroomId', mockClassroomId);
             formData.append('userId', mockUserId);
             formData.append('title', selectedFile.name);
@@ -63,6 +97,22 @@ export default function ExamManagement({ user }) {
 
             const response = await axios.post('http://localhost:5000/api/quiz/generate', {
                 classroomId: mockClassroomId
+=======
+            formData.append('classroomId', newExam.classroom);
+            formData.append('userId', user?._id || user?.id);
+            formData.append('title', selectedFile.name);
+
+            await api.post('/ai/ingest', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                signal: abortControllerRef.current.signal
+            });
+
+            const response = await api.post('/quiz/generate', {
+                classroomId: newExam.classroom,
+                numQuestions: numAiQuestions
+            }, {
+                signal: abortControllerRef.current.signal
+>>>>>>> Stashed changes
             });
 
             if (response.data && response.data.quiz) {
@@ -73,15 +123,27 @@ export default function ExamManagement({ user }) {
                     correctAnswer: q.answer,
                     type: 'multiple-choice'
                 }));
+<<<<<<< Updated upstream
                 setNewExam(prev => ({
                     ...prev,
                     questions: [...prev.questions, ...newQuestions]
                 }));
+=======
+                setNewExam(prev => {
+                    // Lọc bỏ các câu hỏi trống (chưa có nội dung) trước khi thêm câu hỏi từ AI
+                    const existingQuestions = prev.questions.filter(q => q.questionText.trim() !== '');
+                    return {
+                        ...prev,
+                        questions: [...existingQuestions, ...newQuestions]
+                    };
+                });
+>>>>>>> Stashed changes
                 toast.success('Đã tải câu hỏi sinh từ AI thành công!');
             } else {
                 throw new Error("Không thể trích xuất câu hỏi từ AI.");
             }
         } catch (error) {
+<<<<<<< Updated upstream
             console.error(error);
             toast.error(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
         } finally {
@@ -89,6 +151,28 @@ export default function ExamManagement({ user }) {
         }
     };
 
+=======
+            if (error.name === 'AbortError' || (error.response && error.response.status === 0)) {
+                toast.success("Đã hủy quá trình sinh đề.");
+            } else {
+                console.error(error);
+                toast.error(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
+            }
+        } finally {
+            setIsGenerating(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const handleCancelAiGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            setIsGenerating(false);
+        }
+    };
+
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
     useEffect(() => {
         const onConnect = () => console.log('MONITOR SOCKET CONNECTED:', socket.id);
         const onDisconnect = () => console.log('MONITOR SOCKET DISCONNECTED');
@@ -240,6 +324,14 @@ export default function ExamManagement({ user }) {
             ...newExam,
             questions: [...newExam.questions, { questionText: '', options: ['', '', '', ''], correctAnswer: '', type: 'multiple-choice' }]
         });
+    };
+
+    const removeQuestion = (index) => {
+        if (newExam.questions.length === 1) {
+            return toast.error('Đề thi phải có ít nhất 1 câu hỏi.');
+        }
+        const qs = newExam.questions.filter((_, i) => i !== index);
+        setNewExam({ ...newExam, questions: qs });
     };
 
     const handleFetchResults = async (examId) => {
@@ -415,7 +507,22 @@ export default function ExamManagement({ user }) {
                 <Tab eventKey="results" title={<span><i className="bi bi-card-checklist me-2 text-primary"></i>Kết quả & Chấm bài</span>}>
                     <div className="bg-white border-0 shadow-sm rounded-4 p-4 p-md-5">
                         <Row className="mb-5 align-items-end">
-                            <Col md={5}>
+                            <Col md={4} className="mb-3 mb-md-0">
+                                <Form.Label className="text-secondary fw-700 mb-2">Lọc theo lớp học:</Form.Label>
+                                <Form.Select 
+                                    className="bg-light text-dark border-light shadow-sm rounded-pill px-3 py-2 fw-600"
+                                    value={selectedResultClassroom}
+                                    onChange={(e) => {
+                                        setSelectedResultClassroom(e.target.value);
+                                        setSelectedResultExam(''); // Reset exam selection if classroom changes
+                                        setSelectedExamResults([]);
+                                    }}
+                                >
+                                    <option value="">Tất cả lớp học</option>
+                                    {classrooms.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                </Form.Select>
+                            </Col>
+                            <Col md={4}>
                                 <Form.Label className="text-secondary fw-700 mb-2">Chọn kỳ thi để xem kết quả:</Form.Label>
                                 <Form.Select 
                                     className="bg-light text-dark border-light shadow-sm rounded-pill px-3 py-2 fw-600"
@@ -423,10 +530,13 @@ export default function ExamManagement({ user }) {
                                     onChange={(e) => handleFetchResults(e.target.value)}
                                 >
                                     <option value="">Chọn đề thi...</option>
-                                    {exams.map(e => <option key={e._id} value={e._id}>{e.title}</option>)}
+                                    {exams
+                                        .filter(e => !selectedResultClassroom || (e.classroom?._id || e.classroom) === selectedResultClassroom)
+                                        .map(e => <option key={e._id} value={e._id}>{e.title}</option>)
+                                    }
                                 </Form.Select>
                             </Col>
-                            <Col md={7} className="text-md-end mt-3 mt-md-0">
+                            <Col md={4} className="text-md-end mt-3 mt-md-0">
                                 {selectedResultExam && selectedExamResults.length > 0 && (
                                     <Button variant="success" className="rounded-pill px-4 fw-bold shadow-sm" onClick={handleExportCSV}>
                                         <i className="bi bi-file-earmark-excel-fill me-2"></i> Xuất File Excel
@@ -655,6 +765,68 @@ export default function ExamManagement({ user }) {
                                 {classrooms.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                             </Form.Select>
                         </Form.Group>
+
+                        {/* AI Generation Section */}
+                        {!isEditing && (
+                            <div className="mb-4 p-4 rounded-4 border border-primary border-dashed bg-primary bg-opacity-5">
+                                <div className="d-flex align-items-center mb-3">
+                                    <div className="bg-primary bg-opacity-10 p-2 rounded-circle me-2 text-primary">
+                                        <i className="bi bi-robot"></i>
+                                    </div>
+                                    <h6 className="fw-800 text-primary mb-0">Tự động ra đề bằng AI</h6>
+                                </div>
+                                <div className="d-flex gap-3 align-items-end mb-3">
+                                    <Form.Group className="flex-grow-1">
+                                        <Form.Label className="small fw-700 text-muted">Tải PDF bài giảng/tài liệu (AI sẽ dựa vào đây để ra đề):</Form.Label>
+                                        <Form.Control 
+                                            type="file" 
+                                            accept=".pdf"
+                                            className="bg-white border-light shadow-sm rounded-3 px-3 py-2"
+                                            onChange={(e) => setSelectedFile(e.target.files[0])}
+                                            disabled={isGenerating}
+                                        />
+                                    </Form.Group>
+                                    <Form.Group style={{ width: '120px' }}>
+                                        <Form.Label className="small fw-700 text-muted">Số câu:</Form.Label>
+                                        <Form.Control 
+                                            type="number" 
+                                            min="1" max="50"
+                                            value={numAiQuestions}
+                                            onChange={(e) => setNumAiQuestions(parseInt(e.target.value))}
+                                            className="bg-white border-light shadow-sm rounded-3 px-3 py-2"
+                                            disabled={isGenerating}
+                                        />
+                                    </Form.Group>
+                                </div>
+                                <div className="d-flex gap-2">
+                                    <Button 
+                                        variant="primary" 
+                                        size="sm" 
+                                        className="rounded-pill px-4 fw-bold shadow-sm"
+                                        onClick={handleAIGenerateExam}
+                                        disabled={isGenerating || !selectedFile}
+                                    >
+                                        {isGenerating ? (
+                                            <><Spinner animation="border" size="sm" className="me-2" /> Đang xử lý...</>
+                                        ) : (
+                                            <><i className="bi bi-magic me-2"></i> Phát sinh câu hỏi từ AI</>
+                                        )}
+                                    </Button>
+                                    
+                                    {isGenerating && (
+                                        <Button 
+                                            variant="outline-danger" 
+                                            size="sm" 
+                                            className="rounded-pill px-4 fw-bold shadow-sm"
+                                            onClick={handleCancelAiGeneration}
+                                        >
+                                            <i className="bi bi-x-circle me-2"></i> Hủy
+                                        </Button>
+                                    )}
+                                </div>
+                                {isGenerating && <div className="small text-muted mt-2"><i className="bi bi-info-circle me-1"></i> Quá trình này có thể mất 30-60 giây tùy độ dài tài liệu.</div>}
+                            </div>
+                        )}
                         <Row className="mb-4">
                             <Col md={6} className="mb-3 mb-md-0">
                                 <Form.Group>
@@ -691,6 +863,14 @@ export default function ExamManagement({ user }) {
                                 <div className="position-absolute top-0 start-0 bg-primary bg-opacity-10 text-primary fw-800 px-3 py-1 rounded-bottom-end-custom" style={{ borderBottomRightRadius: '15px' }}>
                                     Câu {idx + 1}
                                 </div>
+                                <Button 
+                                    variant="link" 
+                                    className="position-absolute top-0 end-0 text-danger p-2 hover-opacity-100 opacity-50 transition-fast" 
+                                    onClick={() => removeQuestion(idx)}
+                                    title="Xóa câu hỏi này"
+                                >
+                                    <i className="bi bi-trash-fill fs-5"></i>
+                                </Button>
                                 <Form.Group className="mb-3 mt-3">
                                     <Form.Control
                                         type="text" required className="bg-white text-dark border-0 shadow-sm rounded-3 px-3 py-2 fw-600"

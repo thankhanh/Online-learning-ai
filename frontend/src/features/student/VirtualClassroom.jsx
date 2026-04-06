@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import Peer from 'simple-peer';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
+
 
 const VideoStream = ({ stream, muted = false }) => {
     const ref = useRef();
@@ -66,12 +68,59 @@ export default function VirtualClassroom() {
             api.get(`/classrooms/${classId}`)
                 .then(res => {
                     if (res.data.success && res.data.classroom) {
-                        setClassName(res.data.classroom.name);
+                        const classroom = res.data.classroom;
+                        setClassName(classroom.name);
+                        
+                        // Time Restriction Logic for Students
+                        if (currentUser.role === 'student' && classroom.schedule && Array.isArray(classroom.schedule)) {
+                            const checkTime = () => {
+                                const now = new Date();
+                                const dayMap = { 'Chủ Nhật': 0, 'Thứ 2': 1, 'Thứ 3': 2, 'Thứ 4': 3, 'Thứ 5': 4, 'Thứ 6': 5, 'Thứ 7': 6 };
+                                const currentDay = now.getDay();
+                                
+                                // Find any schedule slot active for TODAY or starting YESTERDAY (overnight)
+                                const isAnyActive = classroom.schedule.some(slot => {
+                                    const lessonDay = dayMap[slot.dayOfWeek];
+                                    const [startH, startM] = slot.startTime.split(':').map(Number);
+                                    const [endH, endM] = slot.endTime.split(':').map(Number);
+                                    const isOvernight = (endH < startH) || (endH === startH && endM < startM);
+
+                                    if (currentDay === lessonDay) {
+                                        const startTime = new Date();
+                                        startTime.setHours(startH, startM, 0, 0);
+                                        const endTime = new Date();
+                                        endTime.setHours(endH, endM, 0, 0);
+                                        if (isOvernight) endTime.setDate(endTime.getDate() + 1);
+
+                                        const earlyAccessTime = new Date(startTime.getTime() - 5 * 60 * 1000);
+                                        return now >= earlyAccessTime && now <= endTime;
+                                    } else if (currentDay === (lessonDay + 1) % 7 && isOvernight) {
+                                        // "Tail" of overnight class from yesterday
+                                        const endTime = new Date();
+                                        endTime.setHours(endH, endM, 0, 0);
+                                        return now <= endTime;
+                                    }
+                                    return false;
+                                });
+
+                                if (!isAnyActive) {
+                                    toast.error('Hiện tại không có lịch học cho lớp này hoặc buổi học đã kết thúc.');
+                                    navigate('/dashboard');
+                                }
+                            };
+
+                            // Check immediately on entry
+                            checkTime();
+
+                            // Set interval to check every 30 seconds for auto-exit
+                            const intervalId = setInterval(checkTime, 30000);
+                            return () => clearInterval(intervalId);
+                        }
                     }
                 })
                 .catch(err => console.error('Error fetching classroom info:', err));
         }
-    }, [classId]);
+    }, [classId, currentUser.role, navigate]);
 
     useEffect(() => {
         let isMounted = true;
@@ -266,7 +315,10 @@ export default function VirtualClassroom() {
         setIsAiTyping(true);
 
         try {
-            const res = await api.post('/ai/ask', { question: text });
+            const res = await api.post('/ai/ask', { 
+                question: text,
+                classroomId: classId
+            });
             if (res.data.success) {
                 setAiMessages(prev => [...prev, { sender: 'Gia sư AI', text: res.data.answer, isAi: true }]);
             } else {

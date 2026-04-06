@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, Form, ProgressBar, Badge, ListGroup, Row, Col, InputGroup } from 'react-bootstrap';
+import { Card, Button, Form, ProgressBar, Badge, ListGroup, Row, Col, InputGroup, Spinner } from 'react-bootstrap';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import PdfModal from '../../components/ui/PdfModal';
 
 export default function DocumentManagement() {
     const [documents, setDocuments] = useState([]);
@@ -16,6 +20,23 @@ export default function DocumentManagement() {
     const [chatHistory, setChatHistory] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [showChat, setShowChat] = useState(false);
+    const [isTyping, setIsTyping] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // PDF Modal states
+    const [showPdfModal, setShowPdfModal] = useState(false);
+    const [previewPdfUrl, setPreviewPdfUrl] = useState('');
+    const [previewPdfTitle, setPreviewPdfTitle] = useState('');
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        if (showChat) {
+            scrollToBottom();
+        }
+    }, [chatHistory, isTyping, showChat]);
 
     useEffect(() => {
         fetchInitialData();
@@ -64,6 +85,7 @@ export default function DocumentManagement() {
             if (res.data.success) {
                 setDocuments([res.data.material, ...documents]);
                 if (fileInputRef.current) fileInputRef.current.value = '';
+                setTitle('');
                 toast.success('Tải lên tài liệu thành công!');
             }
         } catch (err) {
@@ -74,16 +96,30 @@ export default function DocumentManagement() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
-        try {
-            const res = await api.delete(`/materials/${id}`);
-            if (res.data.success) {
-                setDocuments(documents.filter(doc => doc._id !== id));
-                toast.success('Đã xóa tài liệu.');
-            }
-        } catch (err) {
-            toast.error('Không thể xóa tài liệu.');
-        }
+        toast.custom((t) => (
+            <div className={`d-flex align-items-center justify-content-center transition-all ${t.visible ? 'opacity-100' : 'opacity-0'}`} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
+                <div className="bg-white p-4 rounded-4 shadow-lg text-center mx-3" style={{ maxWidth: '400px', transform: t.visible ? 'scale(1)' : 'scale(0.9)', transition: 'all 0.2s ease-out' }}>
+                    <div className="mb-3"><i className="bi bi-trash-fill text-danger border border-2 border-danger rounded-circle p-3 fs-3"></i></div>
+                    <h5 className="fw-800 text-dark mb-2">Xóa tài liệu?</h5>
+                    <p className="text-muted mb-4">Bạn có chắc muốn xóa tài liệu này? Hành động này không thể hoàn tác.</p>
+                    <div className="d-flex gap-2 justify-content-center">
+                        <Button variant="light" className="rounded-pill px-4 fw-600" onClick={() => toast.dismiss(t.id)}>Hủy</Button>
+                        <Button variant="danger" className="rounded-pill px-4 fw-600 shadow-sm" onClick={async () => {
+                            toast.dismiss(t.id);
+                            try {
+                                const res = await api.delete(`/materials/${id}`);
+                                if (res.data.success) {
+                                    setDocuments(documents.filter(doc => doc._id !== id));
+                                    toast.success('Đã xóa tài liệu.');
+                                }
+                            } catch (err) {
+                                toast.error('Không thể xóa tài liệu.');
+                            }
+                        }}>Xóa</Button>
+                    </div>
+                </div>
+            </div>
+        ), { duration: Infinity, id: `del-doc-${id}` });
     };
 
     const getStatusBadge = (status) => {
@@ -95,11 +131,9 @@ export default function DocumentManagement() {
         setChatHistory([]);
         setShowChat(true);
 
-        // Fetch history from backend
         try {
             const res = await api.get(`/ai/history?materialId=${doc._id}`);
             if (res.data.success) {
-                // Map history format to UI format
                 const mappedHistory = res.data.history.flatMap(h => [
                     { sender: 'user', message: h.question },
                     { sender: 'ai', message: h.answer }
@@ -118,6 +152,7 @@ export default function DocumentManagement() {
         const userMsg = { sender: 'user', message: chatInput };
         setChatHistory(prev => [...prev, userMsg]);
         setChatInput('');
+        setIsTyping(true);
 
         try {
             const res = await api.post('/ai/ask', { 
@@ -134,10 +169,16 @@ export default function DocumentManagement() {
             }
         } catch (err) {
             console.error('AI Error:', err);
+            let errMsg = 'Rất tiếc, tôi không thể kết nối. Vui lòng kiểm tra lại dịch vụ Server hoặc AI Engine.';
+            if (err.response && err.response.data && err.response.data.message) {
+                errMsg = err.response.data.message;
+            }
             setChatHistory(prev => [...prev, {
                 sender: 'ai',
-                message: 'Rất tiếc, tôi không thể kết nối với trí tuệ nhân tạo lúc này. Vui lòng kiểm tra lại cấu hình Ollama.'
+                message: errMsg
             }]);
+        } finally {
+            setIsTyping(false);
         }
     };
 
@@ -241,6 +282,20 @@ export default function DocumentManagement() {
                                         >
                                             <i className="bi bi-robot me-1"></i> Test AI
                                         </Button>
+                                        {doc.fileUrl.toLowerCase().endsWith('.pdf') && (
+                                            <Button 
+                                                variant="outline-info" 
+                                                size="sm" 
+                                                className="rounded-pill px-3 fw-bold shadow-sm" 
+                                                onClick={() => {
+                                                    setPreviewPdfUrl(doc.fileUrl);
+                                                    setPreviewPdfTitle(doc.title);
+                                                    setShowPdfModal(true);
+                                                }}
+                                            >
+                                                <i className="bi bi-eye me-1"></i> Xem
+                                            </Button>
+                                        )}
                                         <Button 
                                             variant="outline-danger" 
                                             size="sm" 
@@ -270,7 +325,7 @@ export default function DocumentManagement() {
                             </Card.Header>
                             <Card.Body className="d-flex flex-column p-0" style={{ height: '650px' }}>
                                 <div className="flex-grow-1 overflow-auto p-4 custom-scrollbar bg-light bg-opacity-50">
-                                    {chatHistory.length === 0 ? (
+                                    {chatHistory.length === 0 && !isTyping ? (
                                         <div className="text-center py-5">
                                             <div className="bg-primary bg-opacity-10 text-primary d-inline-flex p-4 rounded-circle mb-3">
                                                 <i className="bi bi-chat-dots fs-1"></i>
@@ -279,15 +334,47 @@ export default function DocumentManagement() {
                                             <p className="text-muted small">AI sẽ trả lời dựa trên nội dung tri thức đã học được từ file.</p>
                                         </div>
                                     ) : (
-                                        chatHistory.map((chat, idx) => (
-                                            <div key={idx} className={`d-flex mb-4 ${chat.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
-                                                <div className={`p-3 px-4 shadow-sm ${chat.sender === 'user' ? 'bg-primary text-white' : 'bg-white text-dark border border-light'}`} 
-                                                     style={{ maxWidth: '85%', borderRadius: chat.sender === 'user' ? '1.5rem 1.5rem 0.25rem 1.5rem' : '1.5rem 1.5rem 1.5rem 0.25rem' }}>
-                                                    {chat.sender === 'ai' && <div className="fw-800 text-primary small mb-2 d-flex align-items-center"><i className="bi bi-robot me-1 fs-6"></i> AI Tutor</div>}
-                                                    <div className="fw-500" style={{ lineHeight: '1.6', fontSize: '0.95rem' }}>{chat.message}</div>
-                                                </div>
-                                            </div>
-                                        ))
+                                        <AnimatePresence>
+                                            {chatHistory.map((chat, idx) => (
+                                                <motion.div 
+                                                    key={idx} 
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={`d-flex mb-4 ${chat.sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
+                                                >
+                                                    <div className={`p-3 px-4 shadow-sm ${chat.sender === 'user' ? 'bg-primary text-white' : 'bg-white text-dark border border-light'}`} 
+                                                         style={{ maxWidth: '85%', borderRadius: chat.sender === 'user' ? '1.5rem 1.5rem 0.25rem 1.5rem' : '1.5rem 1.5rem 1.5rem 0.25rem' }}>
+                                                        {chat.sender === 'ai' && <div className="fw-800 text-primary small mb-2 d-flex align-items-center"><i className="bi bi-robot me-1 fs-6"></i> AI Tutor</div>}
+                                                        <div className="fw-500 markdown-body" style={{ lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                                            {chat.sender === 'user' ? (
+                                                                chat.message 
+                                                            ) : (
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{chat.message}</ReactMarkdown>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                            {isTyping && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.9 }}
+                                                    className="d-flex mb-4 justify-content-start"
+                                                >
+                                                    <div className="p-3 px-4 shadow-sm bg-white text-dark border border-light" 
+                                                         style={{ maxWidth: '85%', borderRadius: '1.5rem 1.5rem 1.5rem 0.25rem' }}>
+                                                        <div className="fw-800 text-primary small mb-2 d-flex align-items-center"><i className="bi bi-robot me-1 fs-6"></i> AI Tutor</div>
+                                                        <div className="d-flex align-items-center gap-2 py-2">
+                                                            <Spinner animation="grow" variant="primary" size="sm" />
+                                                            <Spinner animation="grow" variant="primary" size="sm" style={{ animationDelay: '0.2s' }} />
+                                                            <Spinner animation="grow" variant="primary" size="sm" style={{ animationDelay: '0.4s' }} />
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                            <div ref={chatEndRef} />
+                                        </AnimatePresence>
                                     )}
                                 </div>
                                 <div className="p-4 border-top border-light bg-white">
@@ -309,6 +396,13 @@ export default function DocumentManagement() {
                     </Col>
                 )}
             </Row>
+
+            <PdfModal 
+                show={showPdfModal} 
+                onHide={() => setShowPdfModal(false)} 
+                pdfUrl={previewPdfUrl} 
+                title={previewPdfTitle} 
+            />
         </div>
     );
 }

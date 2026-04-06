@@ -1,16 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Users, FileText, Settings, Book, BarChart2 } from 'lucide-react';
-import { Card, Row, Col, Button, Badge } from 'react-bootstrap';
+import { Plus, Users, FileText, Settings, Book, BarChart2, TrendingUp } from 'lucide-react';
+import { Card, Row, Col, Button, Badge, Spinner } from 'react-bootstrap';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import api from '../../utils/api';
 
 const LecturerDashboard = ({ user }) => {
     const [classes, setClasses] = useState([]);
     const [statsData, setStatsData] = useState({ pendingGrading: 0 });
+    const [chartData, setChartData] = useState([]);
+    const [classrooms, setClassrooms] = useState([]);
+    const [selectedClassId, setSelectedClassId] = useState('all');
     const [loading, setLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
+
+    const fetchStats = async () => {
+        try {
+            const res = await api.get('/dashboard/stats');
+            if (res.data.success) {
+                setChartData(res.data.stats.examPerformance || []);
+                // Get unique classrooms from engagement stats or create from examPerformance
+                const uniqueClasses = res.data.stats.engagement || [];
+                setClassrooms(uniqueClasses);
+            }
+        } catch (err) {
+            console.error('Error fetching dashboard stats:', err);
+        } finally {
+            setStatsLoading(false);
+        }
+    };
 
     useEffect(() => {
         fetchClasses();
+        fetchStats();
     }, []);
 
     const fetchClasses = async () => {
@@ -88,6 +110,67 @@ const LecturerDashboard = ({ user }) => {
                 ))}
             </Row>
 
+            {/* Performance Charts */}
+            <Row className="g-4 mb-5">
+                <Col lg={12}>
+                    <Card className="border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                        <Card.Header className="bg-white border-0 pt-4 px-4 pb-0">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <h5 className="fw-900 text-dark mb-0 d-flex align-items-center">
+                                    <div className="bg-success bg-opacity-10 text-success rounded-circle p-2 me-2" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <TrendingUp size={20} />
+                                    </div>
+                                    Phân tích kết quả thi
+                                </h5>
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className="text-muted small fw-700 d-none d-md-inline">CHỌN LỚP HỌC:</span>
+                                    <select 
+                                        className="form-select form-select-sm rounded-pill px-3 border-light shadow-sm fw-600 bg-light"
+                                        style={{ width: '200px' }}
+                                        value={selectedClassId}
+                                        onChange={(e) => setSelectedClassId(e.target.value)}
+                                    >
+                                        <option value="all">Tất cả lớp học</option>
+                                        {classrooms.map((cls, idx) => (
+                                            <option key={idx} value={cls._id || cls.name}>{cls.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </Card.Header>
+                        <Card.Body className="p-4" style={{ height: '350px' }}>
+                            {statsLoading ? (
+                                <div className="h-100 d-flex align-items-center justify-content-center">
+                                    <Spinner animation="border" variant="success" />
+                                </div>
+                            ) : (chartData.filter(item => selectedClassId === 'all' || item.classroomId === selectedClassId || item.classroomName === selectedClassId).length > 0) ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData.filter(item => selectedClassId === 'all' || item.classroomId === selectedClassId || item.classroomName === selectedClassId)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 500 }} dy={10} />
+                                        <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '12px', border: 'none', shadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                            cursor={{ fill: '#f8fafc' }}
+                                        />
+                                        <Bar dataKey="avgScore" radius={[6, 6, 0, 0]} barSize={40}>
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.avgScore >= 8 ? '#10b981' : entry.avgScore >= 5 ? '#3b82f6' : '#ef4444'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
+                                    <i className="bi bi-bar-chart-line fs-1 mb-2"></i>
+                                    <p className="fw-500">Chưa có đủ dữ liệu bài thi để hiển thị phân tích.</p>
+                                </div>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+
             <Row className="g-4">
                 {/* Main Content Area */}
                 <Col lg={8}>
@@ -144,11 +227,6 @@ const LecturerDashboard = ({ user }) => {
                                                 <Button variant="outline-info" size="sm" className="rounded-pill px-3 fw-600 border-2">Tài liệu</Button>
                                             </Link>
                                         </div>
-                                        <Link to={`/virtual-classroom/${cls._id}`}>
-                                            <Button variant="success" size="sm" className="rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center" style={{ background: 'linear-gradient(135deg, #10b981, #34d399)', border: 'none' }}>
-                                                Vào dạy học <i className="bi bi-play-circle-fill ms-2 fs-5"></i>
-                                            </Button>
-                                        </Link>
                                     </div>
                                 </Card.Body>
                             </Card>

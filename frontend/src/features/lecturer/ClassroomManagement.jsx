@@ -92,7 +92,7 @@ export default function ClassroomManagement({ user }) {
                 setClasses(classes.map(c => c._id === selectedClass._id ? { ...c, schedule: res.data.schedule } : c));
             }
         } catch (err) {
-            toast.error('Không thể cập nhật lịch học.');
+            toast.error(err.response?.data?.message || 'Không thể cập nhật lịch học.');
         } finally {
             setIsSavingSchedule(false);
         }
@@ -193,17 +193,19 @@ export default function ClassroomManagement({ user }) {
                                 <Button variant="link" className="text-primary text-decoration-none fw-700 p-0 fs-6">
                                     Xem chi tiết <i className="bi bi-arrow-right align-middle"></i>
                                 </Button>
-                                <Button 
-                                    variant={user?.role === 'lecturer' ? "success" : "primary"} 
-                                    size="sm" 
-                                    className="px-4 py-2 rounded-pill fw-bold shadow-sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(`/virtual-classroom/${cls._id}`);
-                                    }}
-                                >
-                                    {user?.role === 'lecturer' ? 'Vào dạy' : 'Vào học'} <i className="bi bi-broadcast ms-1"></i>
-                                </Button>
+                                {user?.role === 'student' && (
+                                    <Button 
+                                        variant="primary" 
+                                        size="sm" 
+                                        className="px-4 py-2 rounded-pill fw-bold shadow-sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/virtual-classroom/${cls._id}`);
+                                        }}
+                                    >
+                                        Vào học <i className="bi bi-broadcast ms-1"></i>
+                                    </Button>
+                                )}
                             </Card.Footer>
                         </Card>
                     </Col>

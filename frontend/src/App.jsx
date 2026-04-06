@@ -19,6 +19,7 @@ import VirtualClassroom from './features/student/VirtualClassroom'
 import LearningCenter from './features/student/LearningCenter'
 import ExamRoom from './features/student/ExamRoom'
 import ExamList from './features/student/ExamList'
+import StudentSchedule from './features/student/StudentSchedule'
 import UserManagement from './features/admin/UserManagement'
 import CategoryManagement from './features/admin/CategoryManagement'
 
@@ -214,6 +215,10 @@ function App() {
         </MainLayout> : <Navigate to="/login" />} />
 
         <Route path="/exam-room/:id" element={user ? <ExamRoom /> : <Navigate to="/login" />} />
+
+        <Route path="/schedule" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
+          <StudentSchedule />
+        </MainLayout> : <Navigate to="/login" />} />
 
         {/* Catch-all Route - Must be last */}
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
