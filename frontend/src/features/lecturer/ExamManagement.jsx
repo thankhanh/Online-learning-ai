@@ -1,23 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Form, Badge, Row, Col, Table, Tab, Tabs, Modal, Spinner, Alert } from 'react-bootstrap';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Search, Plus, ShieldCheck, Activity, Download, Trash, Edit, RefreshCw } from 'lucide-react';
 import api from '../../utils/api';
 import socket from '../../utils/socket';
 import toast from 'react-hot-toast';
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-import axios from 'axios';
-=======
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
->>>>>>> Stashed changes
-=======
-=======
-
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 
 export default function ExamManagement({ user }) {
     const [key, setKey] = useState('overview');
@@ -45,49 +31,18 @@ export default function ExamManagement({ user }) {
     const [reviewData, setReviewData] = useState(null);
     const [selectedResultClassroom, setSelectedResultClassroom] = useState('');
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     // AI Integration States
     const [selectedFile, setSelectedFile] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [generatedQuiz, setGeneratedQuiz] = useState([]);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    const fileInputRef = useRef(null);
-    
-    // Hardcoded for Demo purposes
-    const mockClassroomId = "6980e7970960e0fbd8c2b675";
-    const mockUserId = "6980c7970960c0fbd8c2b665";
-=======
-=======
->>>>>>> Stashed changes
     const [numAiQuestions, setNumAiQuestions] = useState(10);
     const abortControllerRef = useRef(null);
     const fileInputRef = useRef(null);
-    
-    // Hardcoded for Demo purposes
-
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     const handleAIGenerateExam = async () => {
         if (!selectedFile) {
             toast.error("Vui lòng chọn File PDF bài giảng trước!");
             return;
         }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
 
         if (!newExam.classroom) {
             toast.error("Bạn chưa chọn lớp học nào để gán đề thi!");
@@ -96,32 +51,12 @@ export default function ExamManagement({ user }) {
 
         // Initialize AbortController
         abortControllerRef.current = new AbortController();
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         
         setIsGenerating(true);
-        setGeneratedQuiz([]);
 
         try {
             const formData = new FormData();
             formData.append('file', selectedFile);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            formData.append('classroomId', mockClassroomId);
-            formData.append('userId', mockUserId);
-            formData.append('title', selectedFile.name);
-
-            await axios.post('http://localhost:5000/api/ai/ingest', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            const response = await axios.post('http://localhost:5000/api/quiz/generate', {
-                classroomId: mockClassroomId
-=======
-=======
->>>>>>> Stashed changes
             formData.append('classroomId', newExam.classroom);
             formData.append('userId', user?._id || user?.id);
             formData.append('title', selectedFile.name);
