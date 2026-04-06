@@ -5,9 +5,15 @@ import api from '../../utils/api';
 import socket from '../../utils/socket';
 import toast from 'react-hot-toast';
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import axios from 'axios';
 =======
 <<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
+=======
 =======
 
 >>>>>>> Stashed changes
@@ -42,6 +48,9 @@ export default function ExamManagement({ user }) {
 <<<<<<< Updated upstream
 =======
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     // AI Integration States
@@ -49,18 +58,24 @@ export default function ExamManagement({ user }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState([]);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     const fileInputRef = useRef(null);
     
     // Hardcoded for Demo purposes
     const mockClassroomId = "6980e7970960e0fbd8c2b675";
     const mockUserId = "6980c7970960c0fbd8c2b665";
 =======
+=======
+>>>>>>> Stashed changes
     const [numAiQuestions, setNumAiQuestions] = useState(10);
     const abortControllerRef = useRef(null);
     const fileInputRef = useRef(null);
     
     // Hardcoded for Demo purposes
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     const handleAIGenerateExam = async () => {
@@ -69,7 +84,10 @@ export default function ExamManagement({ user }) {
             return;
         }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 
         if (!newExam.classroom) {
             toast.error("Bạn chưa chọn lớp học nào để gán đề thi!");
@@ -78,6 +96,9 @@ export default function ExamManagement({ user }) {
 
         // Initialize AbortController
         abortControllerRef.current = new AbortController();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         
         setIsGenerating(true);
@@ -86,6 +107,7 @@ export default function ExamManagement({ user }) {
         try {
             const formData = new FormData();
             formData.append('file', selectedFile);
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
             formData.append('classroomId', mockClassroomId);
             formData.append('userId', mockUserId);
@@ -98,6 +120,8 @@ export default function ExamManagement({ user }) {
             const response = await axios.post('http://localhost:5000/api/quiz/generate', {
                 classroomId: mockClassroomId
 =======
+=======
+>>>>>>> Stashed changes
             formData.append('classroomId', newExam.classroom);
             formData.append('userId', user?._id || user?.id);
             formData.append('title', selectedFile.name);
@@ -112,6 +136,9 @@ export default function ExamManagement({ user }) {
                 numQuestions: numAiQuestions
             }, {
                 signal: abortControllerRef.current.signal
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             });
 
@@ -124,11 +151,14 @@ export default function ExamManagement({ user }) {
                     type: 'multiple-choice'
                 }));
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                 setNewExam(prev => ({
                     ...prev,
                     questions: [...prev.questions, ...newQuestions]
                 }));
 =======
+=======
+>>>>>>> Stashed changes
                 setNewExam(prev => {
                     // Lọc bỏ các câu hỏi trống (chưa có nội dung) trước khi thêm câu hỏi từ AI
                     const existingQuestions = prev.questions.filter(q => q.questionText.trim() !== '');
@@ -137,12 +167,16 @@ export default function ExamManagement({ user }) {
                         questions: [...existingQuestions, ...newQuestions]
                     };
                 });
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                 toast.success('Đã tải câu hỏi sinh từ AI thành công!');
             } else {
                 throw new Error("Không thể trích xuất câu hỏi từ AI.");
             }
         } catch (error) {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
             console.error(error);
             toast.error(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
@@ -152,6 +186,8 @@ export default function ExamManagement({ user }) {
     };
 
 =======
+=======
+>>>>>>> Stashed changes
             if (error.name === 'AbortError' || (error.response && error.response.status === 0)) {
                 toast.success("Đã hủy quá trình sinh đề.");
             } else {
@@ -172,6 +208,9 @@ export default function ExamManagement({ user }) {
     };
 
 >>>>>>> Stashed changes
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     useEffect(() => {
         const onConnect = () => console.log('MONITOR SOCKET CONNECTED:', socket.id);
