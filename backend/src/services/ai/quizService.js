@@ -10,7 +10,7 @@ class QuizService {
         });
     }
 
-    async generateQuiz(classroomId) {
+    async generateQuiz(classroomId, numQuestions = 10) {
         try {
             // 1. Fetch larger context. Since we want a quiz, we fetch up to 12 chunks.
             const filter = classroomId ? { classroomId } : {};
@@ -30,14 +30,19 @@ class QuizService {
                 throw new Error("Không tìm thấy văn bản nào cho lớp học này. Vui lòng nạp File PDF/Tài liệu trước khi sinh câu hỏi.");
             }
 
+<<<<<<< Updated upstream
             // 2. Strong Prompt to force JSON format
             const prompt = `Bạn là giáo viên chuyên xây dựng đề thi trắc nghiệm. Dựa vào nội dung dưới đây, hãy tạo bài kiểm tra gồm chính xác 10 câu hỏi trắc nghiệm.
+=======
+            // 2. Prompt tối ưu cho Groq
+            const prompt = `Bạn là giáo viên chuyên xây dựng đề thi trắc nghiệm. Dựa vào nội dung dưới đây, hãy tạo bài kiểm tra gồm chính xác ${numQuestions} câu hỏi trắc nghiệm.
+>>>>>>> Stashed changes
             
 Nội dung tài liệu:
 ${contextText}
 
 Bạn PHẢI trả lời BẰNG ĐỊNH DẠNG JSON. Không giải thích thêm, không sinh thêm bất kỳ văn bản nào ngoài JSON. 
-Định dạng JSON yêu cầu là một mảng Array chứa 10 objects, mỗi object có cấu trúc như sau:
+Định dạng JSON yêu cầu là một mảng Array chứa chính xác ${numQuestions} objects, mỗi object có cấu trúc như sau:
 [
   {
     "question": "Nội dung câu hỏi của bạn?",

@@ -188,9 +188,45 @@ exports.deleteClassroom = async (req, res) => {
  * @desc    Update classroom schedule
  * @access  Private/Lecturer
  */
+/**
+ * Helper to check if two time slots overlap
+ */
+const isOverlapping = (s1, e1, s2, e2) => {
+    const toMinutes = (time) => {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    let start1 = toMinutes(s1);
+    let end1 = toMinutes(e1);
+    let start2 = toMinutes(s2);
+    let end2 = toMinutes(e2);
+
+    // Handle midnight crossing
+    const getRanges = (s, e) => {
+        if (e > s) return [{ s, e }];
+        return [{ s, e: 24 * 60 }, { s: 0, e }]; // Two segments for overnight
+    };
+
+    const ranges1 = getRanges(start1, end1);
+    const ranges2 = getRanges(start2, end2);
+
+    for (const r1 of ranges1) {
+        for (const r2 of ranges2) {
+            if (r1.s < r2.e && r1.e > r2.s) return true;
+        }
+    }
+    return false;
+};
+
+/**
+ * @route   PUT /api/classrooms/:id/schedule
+ * @desc    Update classroom schedule with strict overlap prevention
+ * @access  Private/Lecturer
+ */
 exports.updateSchedule = async (req, res) => {
     try {
-        const { schedule } = req.body;
+        const { schedule } = req.body; // Array of { dayOfWeek, startTime, endTime }
         const classroom = await Classroom.findById(req.params.id);
 
         if (!classroom) return res.status(404).json({ success: false, message: 'Classroom not found' });
@@ -198,10 +234,73 @@ exports.updateSchedule = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
+        // 1. Internal validation (within the same request)
+        for (let i = 0; i < schedule.length; i++) {
+            for (let j = i + 1; j < schedule.length; j++) {
+                if (schedule[i].dayOfWeek === schedule[j].dayOfWeek && 
+                    isOverlapping(schedule[i].startTime, schedule[i].endTime, schedule[j].startTime, schedule[j].endTime)) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: `Trùng lặp ngay trong lịch mới: ${schedule[i].dayOfWeek} (${schedule[i].startTime}-${schedule[i].endTime}) và (${schedule[j].startTime}-${schedule[j].endTime})` 
+                    });
+                }
+            }
+        }
+
+        // 2. External validation (against other classrooms owned by this lecturer)
+        const otherClasses = await Classroom.find({ 
+            lecturer: req.user.id, 
+            _id: { $ne: req.params.id } 
+        });
+
+        const dayMap = { 'Chủ Nhật': 0, 'Thứ 2': 1, 'Thứ 3': 2, 'Thứ 3': 2, 'Thứ 4': 3, 'Thứ 5': 4, 'Thứ 6': 5, 'Thứ 7': 6 };
+        const reverseDayMap = Object.fromEntries(Object.entries(dayMap).map(([k, v]) => [v, k]));
+
+        for (const newSlot of schedule) {
+            for (const otherClass of otherClasses) {
+                if (!otherClass.schedule) continue;
+                for (const existingSlot of otherClass.schedule) {
+                    const d1 = dayMap[newSlot.dayOfWeek];
+                    const d2 = dayMap[existingSlot.dayOfWeek];
+                    
+                    const isNextDay1 = (toMinutes) => (toMinutes(newSlot.endTime) < toMinutes(newSlot.startTime));
+                    const isNextDay2 = (toMinutes) => (toMinutes(existingSlot.endTime) < toMinutes(existingSlot.startTime));
+
+                    // Check overlap on the same day
+                    if (d1 === d2 && isOverlapping(newSlot.startTime, newSlot.endTime, existingSlot.startTime, existingSlot.endTime)) {
+                        return res.status(400).json({ 
+                            success: false, 
+                            message: `Lịch bị trùng với lớp "${otherClass.name}" vào ${newSlot.dayOfWeek} (${existingSlot.startTime}-${existingSlot.endTime})` 
+                        });
+                    }
+
+                    // Check overlap for midnight crossing (if slot1 ends Tuesday AM, it might overlap with Tuesday AM slot2)
+                    const nextD1 = (d1 + 1) % 7;
+                    const nextD2 = (d2 + 1) % 7;
+
+                    const toMin = (time) => { const [h, m] = time.split(':').map(Number); return h * 60 + m; };
+
+                    if (isNextDay1(toMin) && nextD1 === d2) {
+                        // Slot 1 crosses to Day 2, check against Slot 2 starting on Day 2
+                        if (toMin(newSlot.endTime) > toMin(existingSlot.startTime)) {
+                             return res.status(400).json({ success: false, message: `Lịch bị trùng với lớp "${otherClass.name}" (Giờ kết thúc qua hôm sau trùng với tiết bắt đầu hôm sau).` });
+                        }
+                    }
+
+                    if (isNextDay2(toMin) && nextD2 === d1) {
+                         // Slot 2 crosses to Day 1, check against Slot 1 starting on Day 1
+                         if (toMin(existingSlot.endTime) > toMin(newSlot.startTime)) {
+                             return res.status(400).json({ success: false, message: `Lịch bị trùng với lớp "${otherClass.name}" (Tiết học từ hôm qua kéo dài trùng với tiết bắt đầu hôm nay).` });
+                         }
+                    }
+                }
+            }
+        }
+
         classroom.schedule = schedule;
         await classroom.save();
 
-        res.json({ success: true, message: 'Schedule updated', schedule: classroom.schedule });
+        res.json({ success: true, message: 'Cập nhật lịch học thành công!', schedule: classroom.schedule });
     } catch (error) {
         console.error('Update Schedule Error:', error.message);
         res.status(500).json({ success: false, message: 'Server Error' });

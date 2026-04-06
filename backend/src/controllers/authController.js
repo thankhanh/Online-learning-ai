@@ -209,3 +209,65 @@ exports.updateProfile = async (req, res) => {
         res.status(500).json({ message: 'Server Error updating profile' });
     }
 };
+
+/**
+ * @route   PUT /api/auth/change-password
+ * @desc    Change user password
+ * @access  Private
+ */
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!isValidPassword(newPassword)) {
+            return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Check current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.json({ success: true, message: 'Đổi mật khẩu thành công!' });
+    } catch (err) {
+        console.error('ChangePassword Error:', err.message);
+        res.status(500).json({ message: 'Server Error changing password' });
+    }
+};
+
+/**
+ * @route   POST /api/auth/upload-avatar
+ * @desc    Upload avatar image
+ * @access  Private
+ */
+exports.uploadAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Vui lòng chọn một file ảnh' });
+        }
+
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+        
+        await User.findByIdAndUpdate(req.user.id, {
+            $set: { avatar: avatarUrl }
+        });
+
+        res.json({
+            success: true,
+            avatar: avatarUrl,
+            message: 'Tải ảnh đại diện lên thành công!'
+        });
+    } catch (err) {
+        console.error('UploadAvatar Error:', err.message);
+        res.status(500).json({ message: 'Server Error uploading avatar' });
+    }
+};
