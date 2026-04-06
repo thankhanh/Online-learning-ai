@@ -136,10 +136,6 @@ export default function ExamManagement({ user }) {
                 numQuestions: numAiQuestions
             }, {
                 signal: abortControllerRef.current.signal
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
             });
 
             if (response.data && response.data.quiz) {
@@ -150,15 +146,7 @@ export default function ExamManagement({ user }) {
                     correctAnswer: q.answer,
                     type: 'multiple-choice'
                 }));
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-                setNewExam(prev => ({
-                    ...prev,
-                    questions: [...prev.questions, ...newQuestions]
-                }));
-=======
-=======
->>>>>>> Stashed changes
+
                 setNewExam(prev => {
                     // Lọc bỏ các câu hỏi trống (chưa có nội dung) trước khi thêm câu hỏi từ AI
                     const existingQuestions = prev.questions.filter(q => q.questionText.trim() !== '');
@@ -167,27 +155,11 @@ export default function ExamManagement({ user }) {
                         questions: [...existingQuestions, ...newQuestions]
                     };
                 });
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
                 toast.success('Đã tải câu hỏi sinh từ AI thành công!');
             } else {
                 throw new Error("Không thể trích xuất câu hỏi từ AI.");
             }
         } catch (error) {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            console.error(error);
-            toast.error(error.response?.data?.message || error.message || "Quá trình ra đề gặp lỗi.");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-=======
-=======
->>>>>>> Stashed changes
             if (error.name === 'AbortError' || (error.response && error.response.status === 0)) {
                 toast.success("Đã hủy quá trình sinh đề.");
             } else {
@@ -206,12 +178,6 @@ export default function ExamManagement({ user }) {
             setIsGenerating(false);
         }
     };
-
->>>>>>> Stashed changes
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     useEffect(() => {
         const onConnect = () => console.log('MONITOR SOCKET CONNECTED:', socket.id);
         const onDisconnect = () => console.log('MONITOR SOCKET DISCONNECTED');

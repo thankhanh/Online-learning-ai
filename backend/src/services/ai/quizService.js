@@ -12,7 +12,7 @@ class QuizService {
         });
     }
 
-    async generateQuiz(classroomId) {
+    async generateQuiz(classroomId, numQuestions = 10) {
         try {
             // 1. Fetch context từ MongoDB Atlas Vector Search
             const filter = classroomId ? { classroomId } : {};
@@ -35,13 +35,13 @@ class QuizService {
             }
 
             // 2. Prompt tối ưu cho Groq
-            const prompt = `Bạn là giáo viên chuyên xây dựng đề thi trắc nghiệm. Dựa vào nội dung dưới đây, hãy tạo bài kiểm tra gồm chính xác 10 câu hỏi trắc nghiệm.
+            const prompt = `Bạn là giáo viên chuyên xây dựng đề thi trắc nghiệm. Dựa vào nội dung dưới đây, hãy tạo bài kiểm tra gồm chính xác ${numQuestions} câu hỏi trắc nghiệm.
             
 Nội dung tài liệu:
 ${contextText}
 
 Bạn PHẢI trả lời BẰNG ĐỊNH DẠNG JSON. Không giải thích thêm, không sinh thêm bất kỳ văn bản nào ngoài JSON. 
-Định dạng JSON yêu cầu là một mảng Array chứa 10 objects, mỗi object có cấu trúc như sau:
+Định dạng JSON yêu cầu là một mảng Array chứa chính xác ${numQuestions} objects, mỗi object có cấu trúc như sau:
 [
   {
     "question": "Nội dung câu hỏi của bạn?",

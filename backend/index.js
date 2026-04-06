@@ -19,7 +19,21 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors());
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "frame-src": ["'self'", "blob:", "*"],
+            "frame-ancestors": ["'self'", "http://localhost:5173", "http://127.0.0.1:5173"],
+            "img-src": ["'self'", "data:", "blob:", "*"],
+            "script-src": ["'self'", "'unsafe-inline'", "*"],
+            "object-src": ["'self'", "blob:", "*"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    frameguard: false // Use CSP frame-ancestors instead
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 
@@ -33,10 +47,13 @@ app.use('/api/notifications', require('./src/routes/notificationRoutes'));
 app.use('/api/quiz', require('./src/routes/quizRoutes'));
 app.use('/api/users', require('./src/routes/userRoutes'));
 app.use('/api/categories', require('./src/routes/categoryRoutes'));
+app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 
 // Serve uploads folder static
 app.use('/uploads', express.static('backend/uploads'));
 app.use('/uploads', express.static('uploads')); // Local serve fallback
+app.use('/temp_uploads', express.static('temp_uploads'));
+app.use('/temp_uploads', express.static('backend/temp_uploads')); // Multi-path support
 
 app.get(['/api', '/api/'], (req, res) => {
     res.json({ success: true, message: "API is reachable" });

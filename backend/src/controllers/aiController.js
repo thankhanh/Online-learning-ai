@@ -87,11 +87,12 @@ exports.ingestDocument = async (req, res) => {
         }
 
         const filePath = file.path;
+        const fileUrl = `/temp_uploads/${file.filename}`;
 
         // 1. Create Material record
         const material = new Material({
             title: title || file.originalname,
-            fileUrl: filePath,
+            fileUrl: fileUrl,
             classroom: classroomId,
             uploadedBy: userId,
             vectorsStored: false
