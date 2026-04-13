@@ -11,9 +11,11 @@ const PdfModal = ({ show, onHide, pdfUrl, title }) => {
         return apiUrl.replace(/\/api$/, '') || apiUrl.replace('/api/', '');
     };
 
-    const fullUrl = pdfUrl?.startsWith('http') 
+    const rawUrl = pdfUrl?.startsWith('http') 
         ? pdfUrl 
         : `${getBaseUrl()}${pdfUrl?.startsWith('/') ? '' : '/'}${pdfUrl}`;
+    
+    const fullUrl = encodeURI(rawUrl);
 
     React.useEffect(() => {
         if (show && fullUrl) {

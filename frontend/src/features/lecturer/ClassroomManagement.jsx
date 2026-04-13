@@ -16,6 +16,7 @@ export default function ClassroomManagement({ user }) {
     const [joinCode, setJoinCode] = useState('');
     const [schedule, setSchedule] = useState([]);
     const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+    const [selectedCategoryId, setSelectedCategoryId] = useState('all');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -160,26 +161,58 @@ export default function ClassroomManagement({ user }) {
                 )}
             </div>
 
+            {/* Category Filter Bar */}
+            <div className="d-flex gap-2 mb-4 overflow-auto pb-2 custom-scrollbar no-scrollbar" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                <Button 
+                    variant={selectedCategoryId === 'all' ? 'primary' : 'outline-secondary'}
+                    className="rounded-pill px-4 fw-600 border-0"
+                    size="sm"
+                    style={selectedCategoryId === 'all' ? { background: 'var(--primary-color)' } : { background: '#f8f9fa' }}
+                    onClick={() => setSelectedCategoryId('all')}
+                >
+                    Tất cả
+                </Button>
+                {categories.map(cat => (
+                    <Button 
+                        key={cat._id}
+                        variant={selectedCategoryId === cat._id ? 'primary' : 'outline-secondary'}
+                        className="rounded-pill px-4 fw-600 border-0 text-nowrap"
+                        size="sm"
+                        style={selectedCategoryId === cat._id ? { background: 'var(--primary-color)' } : { background: '#f8f9fa' }}
+                        onClick={() => setSelectedCategoryId(cat._id)}
+                    >
+                        {cat.name}
+                    </Button>
+                ))}
+            </div>
+
             <Row>
-                {classes.length === 0 ? (
+                {classes.filter(c => selectedCategoryId === 'all' || c.category?._id === selectedCategoryId || c.category === selectedCategoryId).length === 0 ? (
                     <Col className="text-center text-muted py-5">
                         <div className="bg-light rounded-circle d-inline-flex p-4 mb-3 shadow-sm border">
                             <i className="bi bi-journal-x fs-1 text-secondary opacity-50"></i>
                         </div>
-                        <h5 className="fw-800 text-dark">Chưa có lớp học nào.</h5>
+                        <h5 className="fw-800 text-dark">Không có lớp học nào trong danh mục này.</h5>
                     </Col>
-                ) : classes.map(cls => (
+                ) : classes.filter(c => selectedCategoryId === 'all' || c.category?._id === selectedCategoryId || c.category === selectedCategoryId).map(cls => (
                     <Col md={4} key={cls._id} className="mb-4">
                         <Card className="h-100 shadow-sm bg-white border-0 rounded-4 hover-shadow transition-all" role="button" onClick={() => handleClassClick(cls)}>
                             <Card.Body className="p-4">
-                                <div className="d-flex justify-content-between align-items-start mb-3">
-                                    <Badge bg="success" className="bg-opacity-10 text-success px-3 py-2 rounded-pill fw-600 border border-success border-opacity-25">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <Badge bg="success" className="bg-opacity-10 text-success px-2 py-1 rounded-pill fw-600 border border-success border-opacity-25" style={{ fontSize: '0.7rem' }}>
                                         Đang diễn ra
                                     </Badge>
-                                    <div className="bg-light px-3 py-1 rounded-pill border">
-                                        <small className="text-primary fw-800" style={{ letterSpacing: '0.05em' }}>CODE: {cls.code}</small>
+                                    <div className="bg-light px-2 py-1 rounded-3 border">
+                                        <small className="text-primary fw-800" style={{ letterSpacing: '0.05em', fontSize: '0.7rem' }}>#{cls.code}</small>
                                     </div>
                                 </div>
+                                {cls.category?.name && (
+                                    <div className="mb-2">
+                                        <span className="text-primary fw-800 text-uppercase opacity-75" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                                            <i className="bi bi-tag-fill me-1"></i>{cls.category.name}
+                                        </span>
+                                    </div>
+                                )}
                                 <Card.Title className="fw-800 text-dark mb-2 fs-5">{cls.name}</Card.Title>
                                 <Card.Text className="text-muted small fw-500 line-clamp-2" style={{ minHeight: '40px' }}>{cls.description}</Card.Text>
                                 <div className="d-flex align-items-center text-dark mt-4 bg-light p-3 rounded-3 border">

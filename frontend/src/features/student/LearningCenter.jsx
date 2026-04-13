@@ -138,6 +138,7 @@ export default function LearningCenter() {
             });
 
             if (res.data.success) {
+                setIsTyping(false); // Stop typing BEFORE adding the final message
                 setChatHistory(prev => [...prev, {
                     sender: 'ai',
                     message: res.data.answer
@@ -145,6 +146,7 @@ export default function LearningCenter() {
             }
         } catch (err) {
             console.error('AI Error:', err);
+            setIsTyping(false);
             let errMsg = 'Rất tiếc, tôi không thể kết nối. Vui lòng kiểm tra lại dịch vụ Server hoặc AI Engine.';
             if (err.response?.data?.message) {
                 errMsg = err.response.data.message;
@@ -184,7 +186,7 @@ export default function LearningCenter() {
                                         {loading ? (
                                             <div className="py-5 text-center"><Spinner animation="border" variant="primary" /></div>
                                         ) : (
-                                            <ListGroup variant="flush" className="custom-scrollbar" style={{ maxHeight: showChat ? '650px' : 'auto', overflowY: 'auto' }}>
+                                            <ListGroup variant="flush" className="custom-scrollbar" style={{ height: showChat ? 'calc(100vh - 250px)' : 'auto', overflowY: 'auto' }}>
                                                 {documents.length === 0 ? (
                                                     <ListGroup.Item className="p-5 text-center text-muted fw-500">
                                                         Chưa có tài liệu nào từ các lớp học của bạn.
@@ -240,7 +242,7 @@ export default function LearningCenter() {
                                                     <i className="bi bi-x-lg fs-5"></i>
                                                 </Button>
                                             </Card.Header>
-                                            <Card.Body className="d-flex flex-column p-0" style={{ height: '650px' }}>
+                                            <Card.Body className="d-flex flex-column p-0" style={{ height: 'calc(100vh - 250px)', minHeight: '400px' }}>
                                                 <div className="flex-grow-1 overflow-auto p-4 custom-scrollbar bg-light bg-opacity-50">
                                                     {chatHistory.length === 0 && !isTyping ? (
                                                         <div className="text-center py-5">

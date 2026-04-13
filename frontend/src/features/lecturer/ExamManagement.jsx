@@ -243,6 +243,7 @@ export default function ExamManagement({ user }) {
             endTime: exam.endTime ? new Date(exam.endTime).toISOString().slice(0, 16) : '',
             questions: exam.questions.map(q => ({ ...q }))
         });
+        setSelectedFile(null); // Reset AI file when editing
         setShowCreateModal(true);
     };
 
@@ -398,7 +399,7 @@ export default function ExamManagement({ user }) {
 
                 <Tab eventKey="exam-rooms" title={<span><i className="bi bi-journal-plus me-2 text-success"></i>Quản lý Đề thi</span>}>
                     <div className="d-flex justify-content-end mb-4">
-                        <Button variant="primary" onClick={() => setShowCreateModal(true)} className="rounded-pill px-4 fw-bold shadow-sm" style={{ background: 'linear-gradient(135deg, var(--primary-color), #4db8ff)', border: 'none' }}>
+                        <Button variant="primary" onClick={() => { setShowCreateModal(true); setSelectedFile(null); }} className="rounded-pill px-4 fw-bold shadow-sm" style={{ background: 'linear-gradient(135deg, var(--primary-color), #4db8ff)', border: 'none' }}>
                             <i className="bi bi-plus-lg me-2"></i>Tạo Đề thi Mới
                         </Button>
                     </div>
@@ -681,7 +682,7 @@ export default function ExamManagement({ user }) {
             </Tabs>
 
             {/* Modal Tạo Đề Thi */}
-            <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setIsEditing(false); }} size="lg" centered contentClassName="bg-white text-dark shadow-lg rounded-4 border-0">
+            <Modal show={showCreateModal} onHide={() => { setShowCreateModal(false); setIsEditing(false); setSelectedFile(null); }} size="lg" centered contentClassName="bg-white text-dark shadow-lg rounded-4 border-0">
                 <Modal.Header closeButton className="border-bottom bg-light bg-opacity-50 border-light px-4 py-3">
                     <Modal.Title className="fw-800 text-dark">{isEditing ? 'Chỉnh sửa Đề thi' : 'Tạo Đề Thi Mới'}</Modal.Title>
                 </Modal.Header>
@@ -742,7 +743,7 @@ export default function ExamManagement({ user }) {
                                     <Button 
                                         variant="primary" 
                                         size="sm" 
-                                        className="rounded-pill px-4 fw-bold shadow-sm"
+                                        className={`rounded-pill px-4 fw-bold shadow-sm ${(!selectedFile || isGenerating) ? 'opacity-50 grayscale' : ''}`}
                                         onClick={handleAIGenerateExam}
                                         disabled={isGenerating || !selectedFile}
                                     >

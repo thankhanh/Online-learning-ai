@@ -28,11 +28,13 @@ class RagPipeline {
 
         if (aiUri && !aiUri.includes('<user>') && !aiUri.includes('xxxxx')) {
             console.log("✅ Using dedicated AI MongoDB database for vector storage.");
-            // Use mongoose.createConnection for a separate connection
-            const aiConn = mongoose.createConnection(aiUri);
+            console.log("🔗 Connecting to AI MongoDB...");
+            const aiConn = mongoose.createConnection(aiUri, {
+                serverSelectionTimeoutMS: 5000 // 5 seconds timeout
+            });
             await aiConn.asPromise();
             collection = aiConn.db.collection("vectors");
-            console.log("✅ Connected to AI-specific database.");
+            console.log("✅ Successfully connected to AI-specific database.");
         } else {
             console.log("ℹ️ Using PRIMARY MongoDB database for vector storage (MONGO_URI_AI not configured or invalid).");
             if (mongoose.connection.readyState !== 1) {
@@ -57,8 +59,41 @@ class RagPipeline {
             let text = "";
 
             if (isPdf) {
-                const data = await pdf(fileBuffer);
-                text = data.text;
+                console.log("📄 Extracting text from PDF...");
+                if (typeof pdf === 'function') {
+                    // Legacy pdf-parse (v1.x)
+                    const data = await pdf(fileBuffer);
+                    text = data.text;
+                } else if (pdf && pdf.PDFParse) {
+                    // New pdf-parse (v2.x) - requires Uint8Array and async Class API
+                    const pdfParser = new pdf.PDFParse(new Uint8Array(fileBuffer));
+                    // Check if getText is a function
+                    if (typeof pdfParser.getText === 'function') {
+                        const rawText = await pdfParser.getText();
+                        console.log("📄 Raw text type from PDF:", typeof rawText);
+
+                        // Handle different return formats from modern pdf-parse versions
+                        if (typeof rawText === 'string') {
+                            text = rawText;
+                        } else if (Array.isArray(rawText)) {
+                            text = rawText.join('\n');
+                        } else if (rawText && typeof rawText === 'object') {
+                            // Some versions return { text: "...", metadata: ... }
+                            text = rawText.text || JSON.stringify(rawText);
+                        } else {
+                            text = (rawText || "").toString();
+                        }
+                    } else {
+                        throw new Error("PDF parser initialized but getText is not available.");
+                    }
+                } else if (typeof pdf.default === 'function') {
+                    // Possible ESM/CJS interop
+                    const data = await pdf.default(fileBuffer);
+                    text = data.text;
+                } else {
+                    console.error("PDF Library found but API is unknown:", typeof pdf, Object.keys(pdf));
+                    throw new Error("Could not find a valid PDF parsing method in the installed library.");
+                }
             } else {
                 text = fileBuffer.toString('utf-8');
             }
@@ -117,7 +152,7 @@ class RagPipeline {
             }
 
             console.log(`AI Search: Found ${results.length} relevant chunks.`);
-            
+
             if (results.length === 0) {
                 return "";
             }

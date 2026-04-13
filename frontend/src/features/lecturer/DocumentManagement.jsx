@@ -162,6 +162,7 @@ export default function DocumentManagement() {
             });
 
             if (res.data.success) {
+                setIsTyping(false); // Stop typing BEFORE adding the final message
                 setChatHistory(prev => [...prev, {
                     sender: 'ai',
                     message: res.data.answer
@@ -169,6 +170,7 @@ export default function DocumentManagement() {
             }
         } catch (err) {
             console.error('AI Error:', err);
+            setIsTyping(false);
             let errMsg = 'Rất tiếc, tôi không thể kết nối. Vui lòng kiểm tra lại dịch vụ Server hoặc AI Engine.';
             if (err.response && err.response.data && err.response.data.message) {
                 errMsg = err.response.data.message;
@@ -253,7 +255,7 @@ export default function DocumentManagement() {
                         <Card.Header className="bg-light border-bottom border-light px-4 py-3">
                             <h5 className="m-0 fw-800 text-dark"><i className="bi bi-journal-text me-2 text-primary"></i>Danh sách tài liệu đã học</h5>
                         </Card.Header>
-                        <ListGroup variant="flush" className="custom-scrollbar" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                        <ListGroup variant="flush" className="custom-scrollbar" style={{ height: showChat ? 'calc(100vh - 450px)' : 'auto', minHeight: '300px', overflowY: 'auto' }}>
                             {documents.length === 0 ? (
                                 <ListGroup.Item className="text-center py-5 text-muted fw-500">Chưa có tài liệu nào được tải lên.</ListGroup.Item>
                             ) : documents.map(doc => (
@@ -323,7 +325,7 @@ export default function DocumentManagement() {
                                     <i className="bi bi-x-lg fs-5"></i>
                                 </Button>
                             </Card.Header>
-                            <Card.Body className="d-flex flex-column p-0" style={{ height: '650px' }}>
+                            <Card.Body className="d-flex flex-column p-0" style={{ height: 'calc(100vh - 250px)', minHeight: '400px' }}>
                                 <div className="flex-grow-1 overflow-auto p-4 custom-scrollbar bg-light bg-opacity-50">
                                     {chatHistory.length === 0 && !isTyping ? (
                                         <div className="text-center py-5">

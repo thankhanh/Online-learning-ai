@@ -17,8 +17,9 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // Use original name but sanitize or add timestamp to avoid collisions
-        cb(null, Date.now() + '-' + file.originalname);
+        // Use original name but sanitize and add timestamp to avoid collisions
+        const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+        cb(null, Date.now() + '-' + sanitizedName);
     }
 });
 

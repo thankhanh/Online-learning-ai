@@ -58,9 +58,13 @@ exports.getClassrooms = async (req, res) => {
     try {
         let classrooms;
         if (req.user.role === 'lecturer') {
-            classrooms = await Classroom.find({ lecturer: req.user.id }).populate('students', 'name email');
+            classrooms = await Classroom.find({ lecturer: req.user.id })
+                .populate('students', 'name email')
+                .populate('category', 'name');
         } else {
-            classrooms = await Classroom.find({ students: req.user.id }).populate('lecturer', 'name email');
+            classrooms = await Classroom.find({ students: req.user.id })
+                .populate('lecturer', 'name email')
+                .populate('category', 'name');
         }
 
         res.json({ success: true, count: classrooms.length, classrooms });
@@ -79,7 +83,8 @@ exports.getClassroomById = async (req, res) => {
     try {
         const classroom = await Classroom.findById(req.params.id)
             .populate('lecturer', 'name email')
-            .populate('students', 'name email');
+            .populate('students', 'name email')
+            .populate('category', 'name');
 
         if (!classroom) {
             return res.status(404).json({ success: false, message: 'Classroom not found' });

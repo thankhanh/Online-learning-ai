@@ -27,11 +27,24 @@ class AIService {
     }
 
     async askQuestion(question, filter = {}) {
-        try {
-            // Bước 1: Tìm context từ MongoDB (qua Ollama Embedding LOCAL)
-            const context = await ragPipeline.retrieveContext(question, filter);
+        // Simple timeout promise
+        const timeout = (ms) => new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`AI Request timed out after ${ms / 1000}s`)), ms)
+        );
 
-            // Bước 2: Gửi lên Groq Cloud để sinh câu trả lời
+        try {
+            console.log("🤖 AI Service: Processing question...");
+
+            // Step 1: Retrieval with its own potential hang
+            const retrievalTask = (async () => {
+                console.log("🔍 AI Service: Retrieving context...");
+                return await ragPipeline.retrieveContext(question, filter);
+            })();
+
+            // Step 2: Combine retrieval and timeout
+            const context = await Promise.race([retrievalTask, timeout(25000)]);
+            console.log("📝 AI Service: Context retrieved. Sending to Groq...");
+
             const prompt = `Bạn là một giáo sư, trợ lý học tập chuyên nghiệp.
 
 QUY TẮC BẮT BUỘC:
@@ -46,10 +59,15 @@ ${context}
 Câu hỏi: ${question}
 Trả lời:`;
 
-            const response = await this.model.invoke(prompt);
+            // Step 3: Generation with Groq
+            const response = await Promise.race([this.model.invoke(prompt), timeout(15000)]);
+            console.log("✅ AI Service: Answer generated.");
             return response.content;
         } catch (error) {
-            console.error("Error asking question:", error);
+            console.error("❌ Error in AIService.askQuestion:", error.message);
+            if (error.message.includes("timed out")) {
+                throw new Error("Dịch vụ AI đang quá tải hoặc không thể kết nối tới Ollama/Groq. Vui lòng thử lại sau.");
+            }
             throw error;
         }
     }
