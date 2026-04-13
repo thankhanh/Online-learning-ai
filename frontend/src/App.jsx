@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import api from './utils/api'
 import { io } from 'socket.io-client'
 import Login from './pages/Login'
@@ -8,8 +9,6 @@ import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import LandingPage from './pages/LandingPage'
 import MainLayout from './components/layout/MainLayout'
-import ChatBox from './components/ChatBox'
-import ExamViewer from './components/ExamViewer'
 import './App.css'
 import ExamManagement from './features/lecturer/ExamManagement'
 
@@ -20,6 +19,7 @@ import VirtualClassroom from './features/student/VirtualClassroom'
 import LearningCenter from './features/student/LearningCenter'
 import ExamRoom from './features/student/ExamRoom'
 import ExamList from './features/student/ExamList'
+import StudentSchedule from './features/student/StudentSchedule'
 import UserManagement from './features/admin/UserManagement'
 import CategoryManagement from './features/admin/CategoryManagement'
 
@@ -61,6 +61,29 @@ function App() {
       setNotifications(notifications.map(n => ({ ...n, read: true })));
     } catch (err) {
       console.error('Mark All Read Error:', err.message);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(notifications.filter(n => n.id !== id));
+      toast.success('Đã xóa thông báo');
+    } catch (err) {
+      console.error('Delete Notification Error:', err.message);
+      toast.error('Không thể xóa thông báo');
+    }
+  };
+
+  const deleteAllNotifications = async () => {
+    if (!window.confirm('Bạn có chắc muốn xóa tất cả thông báo?')) return;
+    try {
+      await api.delete('/notifications');
+      setNotifications([]);
+      toast.success('Đã xóa tất cả thông báo');
+    } catch (err) {
+      console.error('Delete All Error:', err.message);
+      toast.error('Không thể xóa tất cả thông báo');
     }
   };
 
@@ -122,6 +145,7 @@ function App() {
 
   return (
     <div className="App">
+      <Toaster position="top-right" reverseOrder={false} />
       <div style={{ position: 'fixed', bottom: 10, right: 10, fontSize: '0.8rem', opacity: 0.7 }}>
         API: {apiStatus} | Socket: {socketStatus}
       </div>
@@ -147,20 +171,6 @@ function App() {
           ) : <Navigate to="/login" />
         } />
 
-        {/* Active Routes for Demo */}
-        <Route path="/classroom/:id" element={user ? (
-          <div style={{ display: 'flex', gap: '1rem', height: '100vh', padding: '1rem' }}>
-            <div style={{ flex: 3, background: '#111', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <h2>Live Video Stream (Placeholder)</h2>
-            </div>
-            <div style={{ flex: 1 }}>
-              <ChatBox />
-            </div>
-          </div>
-        ) : <Navigate to="/login" />} />
-
-        <Route path="/exam/:id" element={user ? <ExamViewer /> : <Navigate to="/login" />} />
-
         <Route path="/classroom-management" element={user ?
           <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
             <ClassroomManagement user={user} />
@@ -180,6 +190,8 @@ function App() {
             notifications={notifications} 
             markAsRead={markNotificationAsRead}
             markAllAsRead={markAllNotificationsAsRead}
+            deleteNotification={deleteNotification}
+            deleteAllNotifications={deleteAllNotifications}
           />
         </MainLayout> : <Navigate to="/login" />} />
 
@@ -203,6 +215,10 @@ function App() {
         </MainLayout> : <Navigate to="/login" />} />
 
         <Route path="/exam-room/:id" element={user ? <ExamRoom /> : <Navigate to="/login" />} />
+
+        <Route path="/schedule" element={user ? <MainLayout user={user} onLogout={onLogout} unreadCount={unreadCount}>
+          <StudentSchedule />
+        </MainLayout> : <Navigate to="/login" />} />
 
         {/* Catch-all Route - Must be last */}
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />

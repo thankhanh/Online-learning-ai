@@ -1,59 +1,55 @@
-const { Ollama, OllamaEmbeddings } = require('@langchain/ollama');
-const { PDFLoader } = require('@langchain/community/document_loaders/fs/pdf');
-const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
-const { MemoryVectorStore } = require('@langchain/classic/vectorstores/memory');
+const { ChatGroq } = require('@langchain/groq');
+const ragPipeline = require('./ragPipeline');
+const fs = require('fs').promises;
 
 class AIService {
     constructor() {
-        this.model = new Ollama({
-            baseUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-            model: 'qwen2.5:1.5b',
-            temperature: 0.3
+        // ✅ Hybrid: Dùng Groq Cloud cho Generation (nhanh, model 70B, miễn phí)
+        this.model = new ChatGroq({
+            apiKey: process.env.GROQ_API_KEY,
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.1,   // Giảm hallucination, trả lời chính xác
+            maxRetries: 2,
         });
-        this.embeddings = new OllamaEmbeddings({
-            baseUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-            model: 'nomic-embed-text',
-        });
-        this.vectorStore = null;
     }
 
-    async processDocument(filePath) {
+    async processDocument(filePath, metadata = {}) {
         try {
-            const loader = new PDFLoader(filePath);
-            const docs = await loader.load();
-            
-            const splitter = new RecursiveCharacterTextSplitter({
-                chunkSize: 1000,
-                chunkOverlap: 200,
-            });
-            const splitDocs = await splitter.splitDocuments(docs);
-            
-            this.vectorStore = await MemoryVectorStore.fromDocuments(splitDocs, this.embeddings);
-            return { success: true, chunks: splitDocs.length };
+            // ✅ Embedding vẫn chạy LOCAL qua Ollama (bảo mật tài liệu)
+            const decodedPath = decodeURIComponent(filePath);
+            const fileBuffer = await fs.readFile(decodedPath);
+            const isPdf = decodedPath.toLowerCase().endsWith('.pdf');
+            return await ragPipeline.ingestDocument(fileBuffer, metadata, isPdf);
         } catch (error) {
             console.error("Error processing document:", error);
             throw error;
         }
     }
 
-    async askQuestion(question) {
+    async askQuestion(question, filter = {}) {
         try {
-            if (!this.vectorStore) {
-                // Fallback: Answer generally if no document is loaded
-                const prompt = `Bạn là một Gia sư AI thông minh và thân thiện. Hãy trả lời câu hỏi sau bằng tiếng Việt thật ngắn gọn và chính xác:\n\nHọc viên hỏi: ${question}\nTrả lời:`;
-                return await this.model.invoke(prompt);
-            }
-            
-            // RAG execution
-            const results = await this.vectorStore.similaritySearch(question, 3);
-            const context = results.map(r => r.pageContent).join('\n\n---\n\n');
-            
-            const prompt = `Bạn là một Gia sư AI. Dựa NHỮNG THÔNG TIN TRONG TÀI LIỆU DƯỚI ĐÂY, hãy trả lời câu hỏi của học viên bằng tiếng Việt. Nếu tài liệu không có thông tin, hãy nói "Tôi không tìm thấy thông tin này trong bài giảng."\n\n[TÀI LIỆU CUNG CẤP]:\n${context}\n\n[CÂU HỎI]: ${question}\n\n[GIA SƯ TRẢ LỜI]:`;
-            
+            // Bước 1: Tìm context từ MongoDB (qua Ollama Embedding LOCAL)
+            const context = await ragPipeline.retrieveContext(question, filter);
+
+            // Bước 2: Gửi lên Groq Cloud để sinh câu trả lời
+            const prompt = `Bạn là một giáo sư, trợ lý học tập chuyên nghiệp.
+
+QUY TẮC BẮT BUỘC:
+1. CHỈ trả lời dựa trên Ngữ cảnh bên dưới. KHÔNG bịa thông tin.
+2. Nếu Ngữ cảnh không đủ, hãy nói rõ "Tài liệu không đề cập đến vấn đề này" rồi mới bổ sung kiến thức chung.
+3. Trả lời bằng Tiếng Việt, ngắn gọn, rõ ràng, có cấu trúc (dùng bullet point khi cần).
+4. Trích dẫn nội dung cụ thể từ Ngữ cảnh để minh chứng.
+
+Ngữ cảnh:
+${context}
+
+Câu hỏi: ${question}
+Trả lời:`;
+
             const response = await this.model.invoke(prompt);
-            return response;
+            return response.content;
         } catch (error) {
-            console.error("Error in askQuestion:", error);
+            console.error("Error asking question:", error);
             throw error;
         }
     }

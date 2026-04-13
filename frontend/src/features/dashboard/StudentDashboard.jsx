@@ -1,52 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Clock, PlayCircle, Award, Calendar, Bell } from 'lucide-react';
-import { Card, Row, Col, Button, Badge, ProgressBar } from 'react-bootstrap';
+import { BookOpen, Clock, PlayCircle, Award, Calendar, Bell, TrendingUp } from 'lucide-react';
+import { Card, Row, Col, Button, Badge, ProgressBar, Spinner } from 'react-bootstrap';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
+
 
 const StudentDashboard = ({ user }) => {
     const [courses, setCourses] = useState([]);
     const [exams, setExams] = useState([]);
+    const [notifications, setNotifications] = useState([]);
+    const [statsData, setStatsData] = useState({ gpa: 'N/A', examCount: 0 });
+    const [chartData, setChartData] = useState([]);
+    const [courseProgress, setCourseProgress] = useState({});
     const [loading, setLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [courseRes, examRes] = await Promise.all([
+                const [courseRes, examRes, notifRes, statsRes] = await Promise.all([
                     api.get('/classrooms'),
-                    api.get('/exams')
+                    api.get('/exams'),
+                    api.get('/notifications'),
+                    api.get('/exams/stats/me')
                 ]);
-                if (courseRes.data.success) setCourses(courseRes.data.classrooms);
+                if (courseRes.data.success) {
+                    setCourses(courseRes.data.classrooms);
+                    // Fetch progress for each course
+                    courseRes.data.classrooms.forEach(async (course) => {
+                        try {
+                            const pRes = await api.get(`/classrooms/${course._id}/progress`);
+                            if (pRes.data.success) {
+                                setCourseProgress(prev => ({ ...prev, [course._id]: pRes.data.progress }));
+                            }
+                        } catch (err) {
+                            console.error(`Error fetching progress for ${course._id}:`, err);
+                        }
+                    });
+                }
                 if (examRes.data.success) setExams(examRes.data.exams);
+                if (notifRes.data.success) setNotifications(notifRes.data.notifications.slice(0, 3));
+                if (statsRes.data.success) setStatsData(statsRes.data.stats);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err.message);
             } finally {
                 setLoading(false);
             }
         };
+        const fetchChartStats = async () => {
+            try {
+                const res = await api.get('/dashboard/stats');
+                if (res.data.success) {
+                    setChartData(res.data.stats.examPerformance || []);
+                }
+            } catch (err) {
+                console.error('Error fetching chart stats:', err);
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+
         fetchData();
+        fetchChartStats();
     }, []);
+
+    const getNotifIcon = (type) => {
+        switch (type) {
+            case 'system': return <i className="bi bi-info-circle-fill"></i>;
+            case 'course': return <i className="bi bi-journal-check"></i>;
+            case 'exam': return <i className="bi bi-pencil-square"></i>;
+            default: return <i className="bi bi-bell-fill"></i>;
+        }
+    };
+
+    const getNotifBg = (type) => {
+        switch (type) {
+            case 'system': return 'bg-info border-info';
+            case 'course': return 'bg-success border-success';
+            case 'exam': return 'bg-danger border-danger';
+            default: return 'bg-primary border-primary';
+        }
+    };
 
     const stats = [
         { label: 'Khóa học đang học', value: courses.length, icon: BookOpen, color: 'primary', bg: 'bg-primary' },
         { label: 'Bài thi hiện có', value: exams.length, icon: Clock, color: 'warning', bg: 'bg-warning' },
-        { label: 'Điểm trung bình', value: 'N/A', icon: Award, color: 'success', bg: 'bg-success' },
+        { label: 'Điểm trung bình', value: statsData.gpa, icon: Award, color: 'success', bg: 'bg-success' },
     ];
 
     return (
         <div className="container-fluid p-0">
             {/* Hero Section */}
-            <div className="rounded-3 p-4 mb-4 text-white position-relative overflow-hidden shadow-sm" style={{ background: 'linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%)' }}>
+            <div className="rounded-4 p-4 p-md-5 mb-4 text-white position-relative overflow-hidden shadow-sm" style={{ background: 'linear-gradient(135deg, var(--primary-color) 0%, #4db8ff 100%)' }}>
                 <div className="position-relative z-1">
-                    <h1 className="display-5 fw-bold mb-2">Xin chào, {user.displayName || user.name}! 👋</h1>
-                    <p className="lead mb-4">Bạn đang tham gia <strong>{courses.length} khóa học</strong> và có <strong>{exams.length} bài kiểm tra</strong> đang chờ.</p>
-                    <div className="d-flex gap-3">
-                        <Button variant="light" className="text-primary fw-bold shadow-sm">
+                    <h1 className="display-6 fw-800 mb-2" style={{ letterSpacing: '-0.02em' }}>Xin chào, {user.displayName || user.name}! 👋</h1>
+                    <p className="lead fw-500 mb-4" style={{ fontSize: '1.1rem', opacity: 0.9 }}>Bạn đang tham gia <strong>{courses.length} khóa học</strong> và có <strong>{exams.length} bài kiểm tra</strong> đang chờ.</p>
+                    <div className="d-flex gap-3 mt-2">
+                        <Button variant="light" className="text-primary fw-bold px-4 rounded-pill shadow-sm">
                             <i className="bi bi-play-circle-fill me-2"></i> Tiếp tục học
                         </Button>
-                        <Button variant="outline-light" className="fw-bold">
-                            Xem lịch học
-                        </Button>
+                        <Link to="/schedule">
+                            <Button variant="outline-light" className="fw-bold px-4 rounded-pill">
+                                Xem lịch học
+                            </Button>
+                        </Link>
                     </div>
                 </div>
                 {/* Decorative Pattern */}
@@ -59,14 +118,14 @@ const StudentDashboard = ({ user }) => {
             <Row className="g-4 mb-4">
                 {stats.map((stat, idx) => (
                     <Col md={4} key={idx}>
-                        <Card className="border-0 shadow-sm bg-dark text-white h-100">
-                            <Card.Body className="d-flex align-items-center">
-                                <div className={`rounded-circle p-3 me-3 ${stat.bg} bg-opacity-25`}>
-                                    <stat.icon size={24} className={`text-${stat.color}`} />
+                        <Card className="border-0 shadow-sm bg-white h-100 rounded-4 transition-fast hover-shadow-md">
+                            <Card.Body className="d-flex align-items-center p-4">
+                                <div className={`rounded-circle p-3 me-3 ${stat.bg} bg-opacity-10`}>
+                                    <stat.icon size={28} className={`text-${stat.color}`} />
                                 </div>
-                                <div className="text-white text-bottom">
-                                    <h4 className="mb-0 fw-bold">{stat.value}</h4>
-                                    <small className="text-white">{stat.label}</small>
+                                <div className="text-dark">
+                                    <h3 className="mb-0 fw-800 text-dark" style={{ letterSpacing: '-0.03em' }}>{stat.value}</h3>
+                                    <small className="text-muted fw-600 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{stat.label}</small>
                                 </div>
                             </Card.Body>
                         </Card>
@@ -74,45 +133,111 @@ const StudentDashboard = ({ user }) => {
                 ))}
             </Row>
 
+            <Row className="g-4 mb-5">
+                {/* Performance Chart */}
+                <Col lg={12}>
+                    <Card className="border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                        <Card.Header className="bg-white border-0 pt-4 px-4 pb-0">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <h5 className="fw-900 text-dark mb-0 d-flex align-items-center">
+                                    <div className="bg-info bg-opacity-10 text-info rounded-circle p-2 me-2" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <TrendingUp size={20} />
+                                    </div>
+                                    Thống kê kết quả học tập
+                                </h5>
+                                <Badge bg="light" className="text-muted fw-bold border px-3 py-2 rounded-pill">Hiệu suất 30 ngày qua</Badge>
+                            </div>
+                        </Card.Header>
+                        <Card.Body className="p-4" style={{ height: '350px' }}>
+                            {statsLoading ? (
+                                <div className="h-100 d-flex align-items-center justify-content-center">
+                                    <Spinner animation="border" variant="info" />
+                                </div>
+                            ) : chartData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} dy={10} />
+                                        <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} />
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '12px', border: 'none', shadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                            cursor={{ stroke: '#3b82f6', strokeWidth: 2 }}
+                                        />
+                                        <Area type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
+                                    <i className="bi bi-graph-up fs-1 mb-2"></i>
+                                    <p className="fw-500">Chưa có đủ dữ liệu để hiển thị biểu đồ.</p>
+                                </div>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+
             <Row className="g-4">
                 {/* Active Courses */}
                 <Col lg={8}>
-                    <h4 className="text-white mb-3 fw-bold"><i className="bi bi-collection-play me-2"></i> Khóa học của tôi</h4>
+                    <h5 className="text-dark mb-3 fw-800 d-flex align-items-center">
+                        <div className="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
+                            <i className="bi bi-journal-bookmark-fill fs-5"></i>
+                        </div>
+                        Khóa học của tôi
+                    </h5>
+                    
                     {courses.length === 0 ? (
-                        <Card className="bg-dark text-white border-secondary shadow-sm mb-4">
+                        <Card className="bg-white border-0 shadow-sm mb-4 rounded-4">
                             <Card.Body className="text-center py-5">
-                                <h5 className="text-muted">Bạn chưa tham gia khóa học nào.</h5>
+                                <div className="text-muted mb-3"><i className="bi bi-folder-x display-4 text-secondary opacity-50"></i></div>
+                                <h5 className="text-dark fw-bold">Bạn chưa tham gia khóa học nào.</h5>
+                                <p className="text-muted small">Hãy khám phá các khóa học hấp dẫn trong hệ thống.</p>
                                 <Link to="/classroom-management">
-                                    <Button variant="primary" className="mt-3">Tham gia ngay</Button>
+                                    <Button variant="primary" className="mt-2 rounded-pill px-4 fw-600 shadow-sm">Tham gia ngay</Button>
                                 </Link>
                             </Card.Body>
                         </Card>
                     ) : courses.map(course => (
-                        <Card key={course._id} className="bg-dark text-white border-secondary shadow-sm mb-4">
-                            <Card.Body>
-                                <div className="d-flex align-items-start mb-3 border-bottom border-secondary pb-3">
-                                    <div className="bg-gradient bg-primary rounded p-3 me-3 d-flex align-items-center justify-content-center" style={{ width: '60px', height: '60px' }}>
-                                        <i className="bi bi-cpu fs-3 text-white"></i>
+                        <Card key={course._id} className="bg-white border-0 shadow-sm mb-3 rounded-4 transition-fast" style={{ borderLeft: '4px solid var(--primary-color)' }}>
+                            <Card.Body className="p-4">
+                                <div className="d-flex align-items-start mb-3 border-bottom pb-3">
+                                    <div className="bg-light rounded-4 p-3 me-3 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '64px', height: '64px' }}>
+                                        <i className="bi bi-laptop fs-2 text-primary"></i>
                                     </div>
-                                    <div className="flex-grow-1">
-                                        <div className="d-flex justify-content-between">
-                                            <h5 className="card-title fw-bold mb-1">{course.name}</h5>
-                                            <Badge bg="success">Đang diễn ra</Badge>
+                                    <div className="flex-grow-1 pt-1">
+                                        <div className="d-flex justify-content-between align-items-start">
+                                            <h5 className="card-title fw-800 mb-1 text-dark">{course.name}</h5>
+                                            <Badge bg="success" className="bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill fw-600 small">Đang học</Badge>
                                         </div>
-                                        <p className="card-text text-muted small mb-2">Giảng viên: {course.lecturer?.name || 'Chưa cập nhật'}</p>
-                                        <div className="d-flex align-items-center">
-                                            <small className="text-muted me-2">Tiến độ:</small>
-                                            <ProgressBar now={0} variant="info" style={{ height: '6px', width: '100px' }} className="me-2" />
-                                            <small className="text-info">0%</small>
+                                        <p className="card-text text-muted small mb-3">
+                                            <i className="bi bi-person-video3 me-1"></i> Giảng viên: <span className="fw-600 text-dark">{course.lecturer?.name || 'Chưa cập nhật'}</span>
+                                        </p>
+                                        <div className="d-flex align-items-center bg-light p-2 rounded-3">
+                                            <small className="text-muted fw-600 me-2" style={{ fontSize: '0.75rem' }}>TIẾN ĐỘ</small>
+                                            <ProgressBar now={courseProgress[course._id] || 0} className="flex-grow-1 mx-2 bg-white" style={{ height: '8px' }}>
+                                                <ProgressBar variant="primary" now={courseProgress[course._id] || 0} />
+                                            </ProgressBar>
+                                            <small className="text-primary fw-800">{courseProgress[course._id] || 0}%</small>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="d-flex justify-content-end gap-2">
+                                <div className="d-flex justify-content-end gap-2 mt-2">
                                     <Link to="/learning-center">
-                                        <Button variant="outline-light" size="sm">Tài liệu</Button>
+                                        <Button variant="outline-primary" size="sm" className="rounded-pill px-3 fw-600 border-2 shadow-sm">
+                                            <i className="bi bi-folder2-open me-1"></i> Tài liệu
+                                        </Button>
                                     </Link>
                                     <Link to={`/virtual-classroom/${course._id}`}>
-                                        <Button variant="primary" size="sm">Vào lớp học</Button>
+                                        <Button variant="primary" size="sm" className="rounded-pill px-4 fw-600 shadow-sm border-0 d-flex align-items-center" style={{ background: 'linear-gradient(135deg, var(--primary-color), #4db8ff)'}}>
+                                            Vào lớp <i className="bi bi-arrow-right-short fs-5 ms-1"></i>
+                                        </Button>
                                     </Link>
                                 </div>
                             </Card.Body>
@@ -123,71 +248,126 @@ const StudentDashboard = ({ user }) => {
                 {/* Sidebar: Exams & Notifications */}
                 <Col lg={4}>
                     {/* Upcoming Exams */}
-                    <Card className="bg-dark text-white border-0 shadow-lg mb-4 overflow-hidden" style={{ borderRadius: '15px' }}>
-                        <Card.Header className="bg-danger bg-opacity-10 border-0 text-danger fw-bold d-flex align-items-center p-3">
-                            <Clock className="me-2" size={20} /> Bài kiểm tra sắp tới
+                    <Card className="bg-white border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
+                        <Card.Header className="bg-white border-bottom-0 pt-4 pb-2 px-4">
+                            <h6 className="fw-800 text-dark mb-0 d-flex align-items-center">
+                                <div className="bg-danger bg-opacity-10 text-danger rounded-circle p-1 me-2" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Clock size={16} />
+                                </div>
+                                Kiểm tra sắp tới
+                            </h6>
                         </Card.Header>
-                        <Card.Body className="p-3">
+                        <Card.Body className="p-4 pt-2">
                             {exams.length === 0 ? (
-                                <div className="text-center py-4">
-                                    <i className="bi bi-calendar-x fs-2 text-muted d-block mb-2"></i>
-                                    <p className="text-muted small m-0">Không có bài thi sắp tới</p>
+                                <div className="text-center py-4 bg-light rounded-3">
+                                    <i className="bi bi-calendar-check fs-2 text-muted d-block mb-2 opacity-50"></i>
+                                    <p className="text-muted small fw-500 m-0">Tuyệt vời! Không có bài thi nào sắp tới</p>
                                 </div>
-                            ) : exams.slice(0, 3).map(exam => (
-                                <div key={exam._id} className="d-flex align-items-center mb-3 p-2 rounded hover-bg-secondary transition-all" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                    <div className="me-3 text-center bg-danger bg-opacity-10 rounded p-2" style={{ minWidth: '55px' }}>
-                                        <h5 className="mb-0 fw-bold text-danger">{exam.duration}</h5>
-                                        <div className="text-muted" style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>phút</div>
+                            ) : exams.slice(0, 3).map(exam => {
+                                const now = new Date();
+                                const start = exam.startTime ? new Date(exam.startTime) : null;
+                                const end = exam.endTime ? new Date(exam.endTime) : null;
+                                
+                                let status = 'available';
+                                let statusText = '';
+                                
+                                if (start && now < start) {
+                                    status = 'upcoming';
+                                    const diffMs = start - now;
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    statusText = diffHours > 0 ? `Bắt đầu sau ${diffHours}h ${diffMins}p` : `Bắt đầu sau ${diffMins}p`;
+                                } else if (end && now > end) {
+                                    status = 'ended';
+                                    statusText = 'Đã kết thúc';
+                                }
+
+                                return (
+                                    <div key={exam._id} className="d-flex align-items-center mb-3 p-3 rounded-4 bg-light border border-white shadow-sm transition-fast hover-shadow">
+                                        <div className="me-3 text-center bg-white rounded-3 p-2 shadow-sm border border-danger border-opacity-10" style={{ minWidth: '60px' }}>
+                                            <h4 className="mb-0 fw-800 text-danger" style={{ letterSpacing: '-0.05em' }}>{exam.duration}</h4>
+                                            <div className="text-muted fw-bold" style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>phút</div>
+                                        </div>
+                                        <div className="flex-grow-1 overflow-hidden">
+                                            <h6 className="mb-1 fw-bold text-dark text-truncate" style={{ fontSize: '0.95rem' }}>{exam.title}</h6>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <small className="text-muted d-block text-truncate fw-500" style={{ fontSize: '0.8rem' }}>
+                                                    <i className="bi bi-journal-text me-1"></i> {exam.classroom?.name}
+                                                </small>
+                                                {status !== 'available' && (
+                                                    <Badge bg={status === 'upcoming' ? 'info' : 'secondary'} className="bg-opacity-10 text-uppercase" style={{ fontSize: '0.6rem', color: status === 'upcoming' ? '#0dcaf0' : '#6c757d' }}>
+                                                        {statusText}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {status === 'available' ? (
+                                            <Link to={`/exam-room/${exam._id}`} className="ms-2">
+                                                <Button variant="danger" size="sm" className="rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #dc3545, #fd7e14)', border: 'none' }}>
+                                                    <i className="bi bi-play-fill fs-5 text-white" style={{ marginLeft: '2px' }}></i>
+                                                </Button>
+                                            </Link>
+                                        ) : (
+                                            <Button 
+                                                variant="light" 
+                                                size="sm" 
+                                                className="rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm border ms-2 bg-white text-muted opacity-50" 
+                                                style={{ width: '36px', height: '36px' }}
+                                                onClick={() => {
+                                                    if (status === 'upcoming') toast.error(`Kỳ thi này chưa bắt đầu. ${statusText}`);
+                                                    else toast.error("Kỳ thi này đã kết thúc.");
+                                                }}
+                                            >
+                                                <i className="bi bi-lock-fill fs-6"></i>
+                                            </Button>
+                                        )}
                                     </div>
-                                    <div className="flex-grow-1 overflow-hidden">
-                                        <h6 className="mb-0 fw-bold text-truncate" style={{ fontSize: '0.9rem' }}>{exam.title}</h6>
-                                        <small className="text-muted d-block text-truncate" style={{ fontSize: '0.75rem' }}>{exam.classroom?.name}</small>
-                                    </div>
-                                    <Link to={`/exam-room/${exam._id}`} className="ms-2">
-                                        <Button variant="danger" size="sm" className="rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '32px', height: '32px' }}>
-                                            <i className="bi bi-play-fill fs-5"></i>
-                                        </Button>
-                                    </Link>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </Card.Body>
                     </Card>
 
                     {/* Quick Notifications */}
-                    <Card className="bg-dark text-white border-0 shadow-lg" style={{ borderRadius: '15px' }}>
-                        <Card.Header className="bg-primary bg-opacity-10 border-0 text-primary fw-bold d-flex align-items-center p-3">
-                            <Bell className="me-2" size={20} /> Thông báo mới
+                    <Card className="bg-white border-0 shadow-sm rounded-4 h-100">
+                        <Card.Header className="bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
+                            <h6 className="fw-800 text-dark mb-0 d-flex align-items-center">
+                                <div className="bg-primary bg-opacity-10 text-primary rounded-circle p-1 me-2" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Bell size={16} />
+                                </div>
+                                Thông báo mới
+                            </h6>
+                            {notifications.length > 0 && <Badge bg="danger" pill className="fw-bold px-2 py-1" style={{ fontSize: '0.65rem' }}>{notifications.filter(n => !n.read).length} MỚI</Badge>}
                         </Card.Header>
-                        <Card.Body className="p-3">
+                        <Card.Body className="p-4 pt-2">
                             <ul className="list-unstyled mb-0">
-                                <li className="mb-3 p-2 rounded" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                    <div className="d-flex align-items-start">
-                                        <div className="bg-info bg-opacity-20 p-2 rounded me-3">
-                                            <i className="bi bi-info-circle-fill text-info"></i>
-                                        </div>
-                                        <div>
-                                            <h6 className="mb-1 fw-bold" style={{ fontSize: '0.85rem' }}>Bảo trì hệ thống</h6>
-                                            <p className="text-muted mb-1" style={{ fontSize: '0.75rem', lineHeight: '1.2' }}>Hệ thống bảo trì vào 12:00 PM mai.</p>
-                                            <small className="text-secondary" style={{ fontSize: '0.65rem' }}>2 giờ trước</small>
-                                        </div>
+                                {notifications.length > 0 ? (
+                                    notifications.map((notif, idx) => (
+                                        <li key={notif._id || idx} className={`mb-3 p-3 rounded-4 border border-opacity-25 transition-fast hover-bg-light ${getNotifBg(notif.type)} bg-opacity-10`}>
+                                            <div className="d-flex align-items-start">
+                                                <div className="bg-white p-2 rounded-circle shadow-sm me-3 mt-1 d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
+                                                    <span className={`text-${notif.type === 'system' ? 'info' : notif.type === 'course' ? 'success' : notif.type === 'exam' ? 'danger' : 'primary'}`}>
+                                                        {getNotifIcon(notif.type)}
+                                                    </span>
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <h6 className="mb-1 fw-800 text-dark text-truncate" style={{ fontSize: '0.9rem' }}>{notif.title}</h6>
+                                                    <p className="text-secondary mb-1 fw-500 text-truncate-2" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>{notif.content}</p>
+                                                    <small className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>{new Date(notif.createdAt).toLocaleDateString('vi-VN')}</small>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 opacity-50">
+                                        <i className="bi bi-bell-slash fs-3 mb-2 d-block"></i>
+                                        <small className="fw-600">Không có thông báo mới nào</small>
                                     </div>
-                                </li>
-                                <li className="p-2 rounded" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                    <div className="d-flex align-items-start">
-                                        <div className="bg-success bg-opacity-20 p-2 rounded me-3">
-                                            <i className="bi bi-check-circle-fill text-success"></i>
-                                        </div>
-                                        <div>
-                                            <h6 className="mb-1 fw-bold" style={{ fontSize: '0.85rem' }}>Kết quả bài tập</h6>
-                                            <p className="text-muted mb-1" style={{ fontSize: '0.75rem', lineHeight: '1.2' }}>Bài tập "Linear Regression" đã được chấm.</p>
-                                            <small className="text-secondary" style={{ fontSize: '0.65rem' }}>5 giờ trước</small>
-                                        </div>
-                                    </div>
-                                </li>
+                                )}
                             </ul>
-                            <div className="text-center mt-3 pt-2 border-top border-secondary border-opacity-25">
-                                <Link to="/notifications" className="text-decoration-none small text-primary fw-bold">
-                                    Xem tất cả <i className="bi bi-arrow-right"></i>
+                            <div className="text-center mt-auto pt-3">
+                                <Link to="/notifications" className="btn btn-light w-100 rounded-pill text-primary fw-bold text-decoration-none shadow-sm transition-fast hover-bg-primary hover-text-white" style={{ fontSize: '0.85rem' }}>
+                                    Xem tất cả <i className="bi bi-arrow-right ms-1"></i>
                                 </Link>
                             </div>
                         </Card.Body>
