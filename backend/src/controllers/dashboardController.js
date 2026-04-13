@@ -51,8 +51,9 @@ exports.getStats = async (req, res) => {
             classrooms.forEach(c => c.students.forEach(s => totalStudentsSet.add(s.toString())));
             stats.totalStudents = totalStudentsSet.size;
 
-            // 2. Average scores per exam created by this lecturer
-            const exams = await Exam.find({ lecturer: userId }).populate('classroom', 'name');
+            // 2. Average scores per exam created by this lecturer (find via classrooms)
+            const classroomIds = classrooms.map(c => c._id);
+            const exams = await Exam.find({ classroom: { $in: classroomIds } }).populate('classroom', 'name');
             stats.examsCount = exams.length;
 
             const examStats = [];
