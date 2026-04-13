@@ -263,7 +263,7 @@ export default function DocumentManagement() {
                                     <div className="d-flex justify-content-between align-items-center mb-3">
                                         <div className="d-flex align-items-center">
                                             <div className="bg-primary bg-opacity-10 p-2 rounded-3 me-3 text-primary border border-primary border-opacity-10">
-                                                <i className={`bi ${doc.fileUrl.endsWith('.pdf') ? 'bi-file-earmark-pdf-fill text-danger' : 'bi-file-earmark-word-fill text-primary'} fs-5`}></i>
+                                                <i className={`bi ${(doc.fileUrl && doc.fileUrl.endsWith('.pdf')) ? 'bi-file-earmark-pdf-fill text-danger' : 'bi-file-earmark-word-fill text-primary'} fs-5`}></i>
                                             </div>
                                             <div>
                                                 <div className="fw-800 text-dark mb-1" style={{ fontSize: '1.05rem' }}>{doc.title}</div>
@@ -284,7 +284,7 @@ export default function DocumentManagement() {
                                         >
                                             <i className="bi bi-robot me-1"></i> Test AI
                                         </Button>
-                                        {doc.fileUrl.toLowerCase().endsWith('.pdf') && (
+                                        {doc.fileUrl && doc.fileUrl.toLowerCase().endsWith('.pdf') && (
                                             <Button 
                                                 variant="outline-info" 
                                                 size="sm" 
