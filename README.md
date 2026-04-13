@@ -1,251 +1,489 @@
-## Online Learning & Real-time Exam System with Local AI Tutor
+# 🎓 Online Learning & Real-time Exam System with AI Tutor
+
+<div align="center">
 
 ![Project Screenshot](docs/screenshot.png)
 
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org)
+[![React](https://img.shields.io/badge/React-19.x-blue?logo=react)](https://reactjs.org)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green?logo=mongodb)](https://mongodb.com)
+[![LangChain](https://img.shields.io/badge/LangChain.js-1.x-orange)](https://js.langchain.com)
+[![GROQ](https://img.shields.io/badge/GROQ-Llama_3.3_70B-purple)](https://groq.com)
+[![License](https://img.shields.io/badge/License-ISC-blue)](LICENSE)
+
+**Nền tảng học trực tuyến tích hợp AI — Virtual Classroom · Online Exam · AI Tutor RAG**
+
+</div>
+
+---
+
+## 📋 Mục lục
+
+- [Giới thiệu](#-giới-thiệu)
+- [Tính năng nổi bật](#-tính-năng-nổi-bật)
+- [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
+- [Tech Stack](#-tech-stack)
+- [Cấu trúc dự án](#-cấu-trúc-dự-án)
+- [Cài đặt & Khởi chạy](#-cài-đặt--khởi-chạy)
+- [API Reference](#-api-reference)
+- [Vai trò nhóm](#-vai-trò-nhóm)
+
+---
+
+## 🌟 Giới thiệu
+
+**Online Learning AI** là một nền tảng học trực tuyến toàn diện (All-in-one), được xây dựng theo kiến trúc **Monolithic Modular**, kết hợp đồng thời 3 hệ thống lớn:
+
+1. **Virtual Classroom** — Lớp học ảo thời gian thực, hỗ trợ WebRTC P2P video, chat, giơ tay phát biểu và chia sẻ màn hình.  
+2. **Online Exam System** — Hệ thống thi trực tuyến có chấm điểm tự động, giám sát gian lận thời gian thực qua Socket.io.  
+3. **AI Tutor (Hybrid RAG)** — Gia sư AI trả lời câu hỏi từ tài liệu giảng dạy, sinh đề thi tự động bằng mô hình Llama 3.3 70B qua GROQ API.
+
+---
+
+## ✨ Tính năng nổi bật
+
+### 🏫 Virtual Classroom
+- **WebRTC P2P** (Mesh architecture) — Video conference đa người dùng không cần server media
+- **Real-time Chat** — Nhắn tin trong lớp qua Socket.io
+- **Chia sẻ màn hình** — Giảng viên/sinh viên trình chiếu trực tiếp
+- **Giơ tay phát biểu** — Cơ chế Hand Raise thời gian thực
+- **Pin Screen** — Ghim màn hình bất kỳ
+
+### 📝 Online Exam
+- **Trắc nghiệm & Tự luận** — Hỗ trợ cả hai dạng câu hỏi
+- **Server-side Timer** — Đồng hồ đếm ngược phía server chống gian lận
+- **Anti-cheat Monitoring** — Phát hiện chuyển tab, mất focus, copy/paste
+- **Auto-submit** — Tự động nộp bài khi vi phạm vượt giới hạn (`maxViolations`)
+- **Sinh đề thi tự động** — AI tạo câu hỏi từ tài liệu học tập
+- **Nhắc nhở lịch thi** — Cron Job tự động gửi thông báo trước 24h
+
+### 🤖 AI Tutor (Hybrid RAG Architecture)
+- **Ingest tài liệu PDF** — Giảng viên tải lên, AI xử lý và vector hóa cục bộ
+- **Embedding nội bộ** — Ollama (`nomic-embed-text`) chạy local, không rò rỉ dữ liệu
+- **Vector Search** — MongoDB Atlas Vector Search (HNSW index, Cosine Similarity)
+- **Sinh câu trả lời** — GROQ API (`llama-3.3-70b-versatile`) — nhanh và chính xác
+- **Chat History** — Lưu lịch sử hội thoại AI trên MongoDB
+- **Filter theo lớp** — Câu trả lời đúng ngữ cảnh môn học đang học
+
+### 👤 Quản lý người dùng & Phân quyền
+- **3 vai trò**: `student`, `lecturer`, `admin`
+- **JWT Authentication** — Xác thực qua Header `x-auth-token`
+- **Upload Avatar** — Hỗ trợ ảnh đại diện (jpeg, jpg, png, gif, webp)
+- **Đổi mật khẩu** — API bảo mật có xác thực mật khẩu cũ
+- **Admin Panel** — Quản lý người dùng, danh mục môn học
+
+### 🔔 Hệ thống thông báo
+- Thông báo realtime qua Socket.io
+- Đọc/xóa từng thông báo hoặc toàn bộ
+- Cron Job nhắc nhở lịch thi 24h trước
+
+---
+
+## 🏗 Kiến trúc hệ thống
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                        CLIENT (React)                        │
+│  Landing · Dashboard · Classroom · Exam · AI Chat · Admin    │
+└─────────────────────────┬────────────────────────────────────┘
+                          │ HTTP REST + Socket.io
+┌─────────────────────────▼────────────────────────────────────┐
+│              BACKEND (Node.js + Express + Socket.io)          │
+│                                                              │
+│  Routes → Controllers → Models (Mongoose)                    │
+│  Auth · Classroom · Exam · Material · AI · Notification      │
+│  Quiz · User · Category · Dashboard                          │
+│                                                              │
+│  ┌───────────────┐    ┌──────────────────────────────────┐   │
+│  │  Socket Layer │    │         AI Service Layer          │   │
+│  │ classroomSock │    │  ragPipeline.js   aiService.js   │   │
+│  │ examSocket    │    │  quizService.js                  │   │
+│  └───────────────┘    └──────────────────────────────────┘   │
+│                                  │           │               │
+└──────────────────────────────────┼───────────┼───────────────┘
+                                   │           │
+                      ┌────────────▼─┐  ┌──────▼───────────────┐
+                      │  GROQ Cloud  │  │  Ollama (Local)       │
+                      │ Llama-3.3-70B│  │  nomic-embed-text     │
+                      │ (Generation) │  │  (Embedding/Vectors)  │
+                      └──────────────┘  └──────────────────────┘
+                                                   │
+                      ┌────────────────────────────▼─────────────┐
+                      │            MongoDB Atlas                   │
+                      │  Primary DB · AI Vector DB (vectors col.) │
+                      └──────────────────────────────────────────┘
+```
+
+### RAG Pipeline (Hybrid)
+
+```
+PDF Upload ──► Text Extract ──► Chunk Split (500 chars / 100 overlap)
+    ──► Ollama Embedding (nomic-embed-text) ──► MongoDB Atlas Vector Store
+    
+User Question ──► Ollama Embedding ──► Vector Similarity Search (Top 10)
+    ──► Inject Context ──► GROQ API (Llama-3.3-70B) ──► Answer
+```
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 19, Vite 7, React Router 7, Bootstrap 5, Framer Motion |
+| **WebRTC** | Simple-Peer, Socket.io-client |
+| **Backend** | Node.js 20, Express 5 |
+| **Database** | MongoDB Atlas (Mongoose 8) |
+| **AI - Generation** | GROQ API · Llama-3.3-70B-versatile |
+| **AI - Embedding** | Ollama · nomic-embed-text (Local) |
+| **AI - Orchestration** | LangChain.js (`@langchain/groq`, `@langchain/ollama`, `@langchain/mongodb`) |
+| **Vector Store** | MongoDB Atlas Vector Search (HNSW) |
+| **Auth** | JWT (`jsonwebtoken`), bcryptjs |
+| **Security** | Helmet.js, CORS |
+| **File Upload** | Multer (PDF, Images) |
+| **Realtime** | Socket.io 4.x |
+| **Scheduler** | node-cron |
+| **Containerization** | Docker, Docker Compose |
+
+---
+
+## 📁 Cấu trúc dự án
+
+```
+Online-learning-ai/
+├── backend/
+│   ├── index.js                  # Entry point
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js             # MongoDB connection (Atlas/Local)
+│   │   ├── controllers/
+│   │   │   ├── aiController.js   # Xử lý AI chat & ingest
+│   │   │   ├── authController.js # Đăng ký, đăng nhập, profile, avatar
+│   │   │   ├── categoryController.js
+│   │   │   ├── classroomController.js
+│   │   │   ├── dashboardController.js
+│   │   │   ├── examController.js
+│   │   │   ├── materialController.js
+│   │   │   ├── notificationController.js
+│   │   │   ├── quizController.js # AI auto-generate exam
+│   │   │   └── userController.js
+│   │   ├── models/
+│   │   │   ├── AIChat.js         # Lịch sử chat AI
+│   │   │   ├── Category.js       # Danh mục môn học
+│   │   │   ├── Classroom.js      # Lớp học
+│   │   │   ├── Exam.js           # Bài thi (MCQ + Essay)
+│   │   │   ├── Material.js       # Tài liệu học tập
+│   │   │   ├── Message.js        # Tin nhắn chat lớp học
+│   │   │   ├── Notification.js   # Thông báo hệ thống
+│   │   │   ├── Result.js         # Kết quả bài thi
+│   │   │   ├── StudyProgress.js  # Tiến độ học tập
+│   │   │   └── User.js           # Người dùng (3 roles)
+│   │   ├── routes/               # Express Routers (10 modules)
+│   │   ├── services/
+│   │   │   └── ai/
+│   │   │       ├── aiService.js      # AI Q&A (GROQ + RAG)
+│   │   │       ├── quizService.js    # AI Quiz Generation
+│   │   │       └── ragPipeline.js    # Embedding + Vector Store
+│   │   ├── socket/
+│   │   │   ├── classroomSocket.js    # WebRTC signaling + Chat
+│   │   │   └── examSocket.js         # Anti-cheat monitoring
+│   │   ├── middleware/
+│   │   │   └── authMiddleware.js     # JWT verify + Role authorize
+│   │   └── cronJobs.js               # Nhắc nhở lịch thi 24h
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx               # Root routing (10+ routes)
+│   │   ├── pages/
+│   │   │   ├── LandingPage.jsx
+│   │   │   ├── Login.jsx / Register.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   └── Profile.jsx
+│   │   ├── features/
+│   │   │   ├── student/
+│   │   │   │   ├── VirtualClassroom.jsx  # WebRTC + Screen share
+│   │   │   │   ├── ExamRoom.jsx          # Phòng thi + Anti-cheat
+│   │   │   │   ├── ExamList.jsx          # Danh sách bài thi
+│   │   │   │   ├── LearningCenter.jsx    # Trung tâm học tập + AI Chat
+│   │   │   │   └── StudentSchedule.jsx   # Lịch học
+│   │   │   ├── lecturer/
+│   │   │   │   ├── ClassroomManagement.jsx
+│   │   │   │   ├── ExamManagement.jsx    # Tạo đề + AI Generate
+│   │   │   │   └── DocumentManagement.jsx
+│   │   │   └── admin/
+│   │   │       ├── UserManagement.jsx
+│   │   │       └── CategoryManagement.jsx
+│   │   ├── components/           # UI components dùng chung
+│   │   ├── context/              # React Context (Auth...)
+│   │   ├── hooks/                # Custom hooks
+│   │   ├── services/             # Axios API calls
+│   │   └── utils/                # Helpers
+│   └── Dockerfile
+├── docs/
+│   ├── AI_ALGORITHMS_SUMMARY.md
+│   ├── HYBRID_RAG_ARCHITECTURE.md
+│   ├── ERD.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   └── screenshot.png
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## 🚀 Cài đặt & Khởi chạy
+
+### Yêu cầu hệ thống
+
+| Công cụ | Phiên bản |
+|---------|-----------|
+| Node.js | ≥ 20.19 |
+| npm | ≥ 10.x |
+| MongoDB | Atlas (hoặc Local) |
+| Ollama | Latest |
+| Docker | (Tuỳ chọn) |
+
+### Bước 1: Clone & Cài đặt
+
+```bash
+git clone https://github.com/thankhanh/Online-learning-ai.git
+cd Online-learning-ai
+```
+
+### Bước 2: Cấu hình biến môi trường
+
+Tạo file **`backend/.env`**:
+```env
+PORT=5000
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?appName=Online-learning-ai
+MONGO_URI_AI=mongodb+srv://<ai_user>:<password>@<cluster>.mongodb.net/?appName=Cluster0
+JWT_SECRET=your_very_strong_jwt_secret
+OLLAMA_URL=http://127.0.0.1:11434
+GROQ_API_KEY=your_groq_api_key_from_console.groq.com
+```
+
+Tạo file **`frontend/.env`**:
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+```
+
+> **Lấy GROQ API Key miễn phí** tại: [console.groq.com](https://console.groq.com)
+
+### Bước 3: Khởi động Ollama & tải model Embedding
+
+```bash
+# Cài Ollama tại https://ollama.com rồi chạy:
+ollama pull nomic-embed-text
+ollama serve
+```
+
+### Bước 4: Chạy Backend
+
+```bash
+cd backend
+npm install --legacy-peer-deps
+npm run dev
+# Server khởi động tại http://localhost:5000
+```
+
+### Bước 5: Chạy Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+# App chạy tại http://localhost:5173
+```
+
+---
+
+### 🐳 Chạy bằng Docker Compose (Khuyến nghị)
+
+```bash
+# Build và khởi chạy toàn bộ stack
+docker-compose up --build
+
+# Các services:
+# Frontend  → http://localhost:5173
+# Backend   → http://localhost:5000
+# MongoDB   → localhost:27017
+# Ollama    → http://localhost:11434
+```
+
+---
+
+## 📡 API Reference
+
+### 🔐 Authentication — `/api/auth`
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/register` | Đăng ký tài khoản mới | ❌ |
+| POST | `/login` | Đăng nhập, nhận JWT | ❌ |
+| POST | `/logout` | Đăng xuất | ✅ |
+| GET | `/me` | Lấy thông tin người dùng hiện tại | ✅ |
+| PUT | `/profile` | Cập nhật profile (displayName...) | ✅ |
+| PUT | `/change-password` | Đổi mật khẩu | ✅ |
+| POST | `/upload-avatar` | Tải lên ảnh đại diện | ✅ |
+
+### 🏫 Classroom — `/api/classrooms`
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/` | Danh sách lớp học | ✅ |
+| GET | `/:id` | Chi tiết lớp học | ✅ |
+| POST | `/` | Tạo lớp học mới | 👨‍🏫 Lecturer |
+| PUT | `/:id` | Cập nhật lớp học | 👨‍🏫 Lecturer |
+| DELETE | `/:id` | Xóa lớp học | 👨‍🏫 Lecturer |
+| POST | `/join` | Sinh viên tham gia lớp | 👨‍🎓 Student |
+| GET | `/:id/progress` | Tiến độ học tập | 👨‍🎓 Student |
+
+### 📝 Exam — `/api/exams`
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/` | Danh sách bài thi | ✅ |
+| GET | `/:id` | Chi tiết bài thi | ✅ |
+| POST | `/` | Tạo bài thi mới | 👨‍🏫 Lecturer |
+| PUT | `/:id` | Cập nhật bài thi | 👨‍🏫 Lecturer |
+| DELETE | `/:id` | Xóa bài thi | 👨‍🏫 Lecturer |
+| POST | `/:id/submit` | Nộp bài thi | 👨‍🎓 Student |
+| GET | `/stats/me` | Thống kê kết quả sinh viên | 👨‍🎓 Student |
+| GET | `/stats/lecturer` | Thống kê của giảng viên | 👨‍🏫 Lecturer |
+
+### 🤖 AI Tutor — `/api/ai`
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/ask` | Đặt câu hỏi cho AI (RAG) | ✅ |
+| GET | `/history` | Lịch sử chat AI | ✅ |
+| POST | `/upload` | Tải lên & ingest tài liệu PDF | ✅ |
+| POST | `/ingest` | Alias của `/upload` | ✅ |
+
+### 🎲 Quiz Generation — `/api/quiz`
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/generate` | AI tạo đề thi từ tài liệu | 👨‍🏫 Lecturer |
+
+---
+
+## 👥 Vai trò nhóm
+
+| Tên vai trò | Phụ trách |
+|-------------|-----------|
+| **Leader / Database / Admin** | Quản lý nhóm, thiết kế DB, triển khai |
+| **Backend Engineer** | REST API, Socket.io, Auth, Business Logic |
+| **Frontend Engineer** | React UI, WebRTC, UX/UX Responsive |
+| **AI Engineer** | RAG Pipeline, GROQ Integration, Quiz Gen |
+
+---
+
+## 📚 Tài liệu kỹ thuật
+
+Chi tiết kỹ thuật nằm trong thư mục [`docs/`](docs/):
+
+- [`AI_ALGORITHMS_SUMMARY.md`](docs/AI_ALGORITHMS_SUMMARY.md) — Giải thích thuật toán RAG
+- [`HYBRID_RAG_ARCHITECTURE.md`](docs/HYBRID_RAG_ARCHITECTURE.md) — Kiến trúc Hybrid AI
+- [`ERD.md`](docs/ERD.md) — Entity Relationship Diagram
+- [`DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) — Hướng dẫn triển khai production
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ · Online Learning AI Team · 2025</sub>
+</div>
+
+---
+
+## Online Learning & Real-time Exam System with Local AI Tutor
+
+<div align="center">
+
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-green?logo=node.js)](https://nodejs.org)
+[![React](https://img.shields.io/badge/React-19.x-blue?logo=react)](https://reactjs.org)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green?logo=mongodb)](https://mongodb.com)
+[![GROQ](https://img.shields.io/badge/GROQ-Llama_3.3_70B-purple)](https://groq.com)
+
+</div>
+
 ### 1. Introduction
 
-This project focuses on building an **All-in-one online learning platform** that combines real-time virtual classrooms with a strict online examination system. The key highlight is the integration of a **self-hosted AI Tutor** using Retrieval-Augmented Generation (RAG), capable of understanding teaching materials instantly and assisting lecturers during live classes. The system is designed to run efficiently on limited hardware such as personal laptops or small servers.
+This project builds an **all-in-one online learning platform** combining real-time virtual classrooms, an anti-cheat exam system, and a **Hybrid RAG AI Tutor**. The AI uses GROQ Cloud (Llama-3.3-70B) for answer generation and Ollama (nomic-embed-text) locally for secure document embedding — ensuring data privacy while delivering high-speed, accurate responses.
 
 ### 2. Objectives
 
-* Build a real-time virtual classroom similar to Google Meet
-* Integrate a secure online exam system with basic anti-cheating mechanisms
-* Deploy a local AI Tutor that can read and answer questions from learning materials
-* Ensure full data privacy with no external AI APIs
+* Real-time virtual classroom (WebRTC P2P, Screen Share, Chat, Hand Raise)
+* Secure online exam system with anti-cheat monitoring via Socket.io
+* Self-hosted document vectorization (Ollama) + Cloud generation (GROQ API)
+* Role-based access control: Student, Lecturer, Admin
+* AI auto-generate exam questions from uploaded PDF materials
 
 ### 3. Technology Stack
 
-* **Frontend**: ReactJS (Vite), Socket.io-client, Simple-Peer (WebRTC)
-* **Backend**: Node.js, ExpressJS
-* **Database**: MongoDB
-* **AI Engine (Hybrid Architecture)**:
-  * Generation (Cloud): GROQ API (llama-3.3-70b-versatile) for accurate and fast responses
-  * Embeddings (Local): Ollama (nomic-embed-text) for secure document vectorization
-  * Orchestration: LangChain.js
-* **Architecture**: Monolithic Modular
-* **Containerization**: Docker & Docker Compose
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite, Bootstrap 5, Framer Motion |
+| Backend | Node.js 20, Express 5, Socket.io |
+| Database | MongoDB Atlas (Primary + Vectors) |
+| AI Generation | GROQ API — Llama-3.3-70B-versatile |
+| AI Embedding | Ollama — nomic-embed-text (Local) |
+| Orchestration | LangChain.js |
+| Auth | JWT + bcryptjs |
+| Containerization | Docker & Docker Compose |
 
 ### 4. System Modules
 
 #### 4.1 Virtual Classroom
+* WebRTC P2P video conferencing (Mesh) via Simple-Peer
+* Real-time chat, hand raise, screen sharing, pin screen
+* Socket.io signaling server for WebRTC offer/answer exchange
 
-* WebRTC P2P video conferencing (Mesh architecture)
-* Real-time chat using Socket.io
-* Hand raise and screen sharing
+#### 4.2 AI Tutor — Hybrid RAG
+* Lecturer uploads PDF → Ollama embeds locally → stored in MongoDB Atlas Vector Search
+* Student asks question → vector retrieved → sent to GROQ (Llama-3.3-70B) → contextual answer
+* AI Quiz Service: auto-generates multiple-choice exam from lecture materials
 
-#### 4.2 AI Tutor (Self-hosted RAG)
+#### 4.3 Online Exam & Anti-cheat
+* MCQ + Essay types, server-side timer, auto-submit on violations
+* Anti-cheat: tab switch detection, focus loss, copy/paste restriction
+* Exam reminder Cron Job notifies students 24h before exam start
 
-* Lecturer uploads PDF/Slide materials
-* AI processes and understands documents locally
-* Students ask questions and receive contextual answers
-* No data leaves the internal system
+### 5. RAG Pipeline
 
-#### 4.3 Online Exam & Monitoring
+```
+PDF Upload → Text Extract → Chunk (500 chars) → Ollama Embed → MongoDB Atlas Vectors
+User Query → Ollama Embed → Similarity Search (Top 10) → GROQ Llama-3.3-70B → Answer
+```
 
-* Multiple choice and essay exams
-* Server-side countdown timer
-* Detect tab switching, focus loss, copy/paste
-* Auto-submit when violations exceed limit
+### 6. Installation
 
-### 5. AI Algorithm (RAG Pipeline)
+```bash
+# Clone
+git clone https://github.com/thankhanh/Online-learning-ai.git
 
-1. **Text Splitting**: Recursive Character Text Splitting
-2. **Embedding**: nomic-embed-text
-3. **Vector Search**: HNSW index (MongoDB Atlas / in-memory lookup)
-4. **Similarity Matching**: Cosine Similarity
-5. **Answer Generation**: Llama-3.3-70B via GROQ API Cloud
+# Backend .env
+PORT=5000 | MONGO_URI | MONGO_URI_AI | JWT_SECRET | OLLAMA_URL | GROQ_API_KEY
 
-### 6. Practical Significance
+# Ollama
+ollama pull nomic-embed-text && ollama serve
 
-* Zero cost for external AI APIs
-* Full data privacy for exams and teaching materials
-* Optimized performance with client-side video and local AI processing
+# Backend
+cd backend && npm install --legacy-peer-deps && npm run dev
+
+# Frontend
+cd frontend && npm install && npm run dev
+
+# Or Docker
+docker-compose up --build
+```
 
 ### 7. Team Roles
 
-* Backend Engineer
-* Frontend Engineer
-* AI Engineer
-* Leader / Database / Admin
-
----
-
-### 8. Installation & Setup
-
-#### Prerequisites
-* **Node.js**: v18 or later
-* **MongoDB**: Local or Atlas instance
-* **Ollama**: Installed locally or via Docker
-* **Docker & Docker Compose** (Optional, for containerized run)
-
-#### Environment Variables
-Create a `.env` file in both `backend` and `frontend` folders:
-
-**Backend (`backend/.env`)**
-```env
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/online-learning-ai
-JWT_SECRET=your_jwt_strong_secret
-OLLAMA_URL=http://localhost:11434
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-**Frontend (`frontend/.env`)**
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-#### Running Locally (Manual)
-1. **Start Ollama** and download the model:
-   ```bash
-   ollama run qwen:0.5b
-   ollama pull nomic-embed-text
-   ```
-
-2. **Start the Backend**:
-   ```bash
-   cd backend
-   npm install
-   npm run dev
-   ```
-
-3. **Start the Frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-#### Running with Docker (Recommended)
-You can spin up the entire stack using Docker Compose:
-```bash
-docker-compose up --build
-```
-This will start the frontend, backend, MongoDB, and Ollama in isolated containers.
-
----
-
-## Hệ thống Học trực tuyến & Thi thời gian thực với Gia sư AI cục bộ
-
-![Project Screenshot](docs/screenshot.png)
-
-### 1. Giới thiệu
-
-Dự án này tập trung xây dựng một **Nền tảng học trực tuyến tất cả trong một**, kết hợp các lớp học ảo thời gian thực với hệ thống thi trực tuyến nghiêm ngặt. Điểm nổi bật chính là sự tích hợp của **Gia sư AI tự host** sử dụng kỹ thuật RAG (Retrieval-Augmented Generation), có khả năng hiểu tài liệu giảng dạy ngay lập tức và hỗ trợ giảng viên trong các lớp học trực tiếp. Hệ thống được thiết kế để chạy hiệu quả trên phần cứng hạn chế như laptop cá nhân hoặc server nhỏ.
-
-### 2. Mục tiêu
-
-*   Xây dựng lớp học ảo thời gian thực tương tự Google Meet
-*   Tích hợp hệ thống thi trực tuyến an toàn với cơ chế chống gian lận cơ bản
-*   Triển khai Gia sư AI cục bộ có thể đọc và trả lời câu hỏi từ tài liệu học tập
-*   Đảm bảo bảo mật dữ liệu tuyệt đối, không sử dụng API AI bên ngoài
-
-### 3. Công nghệ sử dụng
-
-*   **Frontend**: ReactJS (Vite), Socket.io-client, Simple-Peer (WebRTC)
-*   **Backend**: Node.js, ExpressJS
-*   **Database**: MongoDB
-*   **AI Engine (Kiến trúc Hybrid AI)**:
-    *   Generation (Cloud): GROQ API (llama-3.3-70b-versatile) cho tốc độ và độ chính xác cao
-    *   Embeddings (Local): Ollama (nomic-embed-text) bảo vệ dữ liệu tài liệu nội bộ
-    *   Orchestration: LangChain.js
-*   **Kiến trúc**: Monolithic Modular
-*   **Ảo hoá**: Docker & Docker Compose
-
-### 4. Các phân hệ hệ thống
-
-#### 4.1 Lớp học ảo (Virtual Classroom)
-
-*   Hội nghị video P2P WebRTC (Kiến trúc Mesh)
-*   Chat thời gian thực sử dụng Socket.io
-*   Giơ tay phát biểu và chia sẻ màn hình
-
-#### 4.2 Gia sư AI (RAG tự host)
-
-*   Giảng viên tải lên tài liệu PDF/Slide
-*   AI xử lý và hiểu tài liệu cục bộ
-*   Sinh viên đặt câu hỏi và nhận câu trả lời theo ngữ cảnh
-*   Không có dữ liệu nào rời khỏi hệ thống nội bộ
-
-#### 4.3 Thi trực tuyến & Giám sát
-
-*   Đề thi trắc nghiệm và tự luận
-*   Bộ đếm ngược phía server
-*   Phát hiện chuyển tab, mất focus, copy/paste
-*   Tự động nộp bài khi vi phạm vượt quá giới hạn
-
-### 5. Thuật toán AI (RAG Pipeline)
-
-1.  **Cắt nhỏ văn bản (Text Splitting)**: Recursive Character Text Splitting
-2.  **Mã hóa (Embedding)**: nomic-embed-text
-3.  **Tìm kiếm Vector (Vector Search)**: HNSW index
-4.  **Khớp tương đồng (Similarity Matching)**: Cosine Similarity
-5.  **Sinh câu trả lời (Answer Generation)**: Mô hình Llama-3.3-70B thông qua GROQ API
-
-### 6. Ý nghĩa thực tiễn
-
-*   Không tốn chi phí cho API AI bên ngoài
-*   Bảo mật dữ liệu tuyệt đối cho đề thi và tài liệu giảng dạy
-*   Tối ưu hóa hiệu năng với video client-side và xử lý AI cục bộ
-
-### 7. Vai trò nhóm
-
-*   Backend Engineer
-*   Frontend Engineer
-*   AI Engineer
-*   Leader / Database / Admin
-
----
-
-### 8. Cài đặt và Khởi chạy
-
-#### Yêu cầu
-* **Node.js**: v18 hoặc mới hơn
-* **MongoDB**: Cài đặt Local hoặc sử dụng Atlas
-* **Ollama**: Cài đặt Local hoặc sử dụng qua Docker
-* **Docker & Docker Compose** (Tuỳ chọn cho chạy ảo hoá)
-
-#### Cấu hình biến môi trường
-Tạo file `.env` ở cả thư mục `backend` và `frontend`:
-
-**Backend (`backend/.env`)**
-```env
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/online-learning-ai
-JWT_SECRET=your_jwt_strong_secret
-OLLAMA_URL=http://localhost:11434
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-**Frontend (`frontend/.env`)**
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-#### Chạy dự án (Local/Thủ công)
-1. **Khởi động Ollama** và tải model:
-   ```bash
-   ollama run qwen:0.5b
-   ollama pull nomic-embed-text
-   ```
-
-2. **Khởi động Backend**:
-   ```bash
-   cd backend
-   npm install
-   npm run dev
-   ```
-
-3. **Khởi động Frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-#### Chạy dự án (Docker)
-Sử dụng cấu hình Docker Compose để khởi chạy toàn bộ dịch vụ:
-```bash
-docker-compose up --build
-```
-Lệnh này sẽ tự động tải các images cần thiết và cấu hình network kết nối cho Frontend, Backend, MongoDB và Ollama.
+| Role | Responsibility |
+|------|---------------|
+| Leader / DB / Admin | Project management, database design, deployment |
+| Backend Engineer | REST API, Socket.io, auth, business logic |
+| Frontend Engineer | React UI, WebRTC integration, UX |
+| AI Engineer | RAG pipeline, GROQ integration, quiz generation |
