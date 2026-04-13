@@ -18,9 +18,9 @@ This project focuses on building an **All-in-one online learning platform** that
 * **Frontend**: ReactJS (Vite), Socket.io-client, Simple-Peer (WebRTC)
 * **Backend**: Node.js, ExpressJS
 * **Database**: MongoDB
-* **AI Engine**:
-  * Runtime: Ollama (Local)
-  * Model: Qwen-2.5-1.5B (or similar)
+* **AI Engine (Hybrid Architecture)**:
+  * Generation (Cloud): GROQ API (llama-3.3-70b-versatile) for accurate and fast responses
+  * Embeddings (Local): Ollama (nomic-embed-text) for secure document vectorization
   * Orchestration: LangChain.js
 * **Architecture**: Monolithic Modular
 * **Containerization**: Docker & Docker Compose
@@ -53,7 +53,7 @@ This project focuses on building an **All-in-one online learning platform** that
 2. **Embedding**: nomic-embed-text
 3. **Vector Search**: HNSW index (MongoDB Atlas / in-memory lookup)
 4. **Similarity Matching**: Cosine Similarity
-5. **Answer Generation**: Transformer-based Qwen model
+5. **Answer Generation**: Llama-3.3-70B via GROQ API Cloud
 
 ### 6. Practical Significance
 
@@ -87,6 +87,7 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/online-learning-ai
 JWT_SECRET=your_jwt_strong_secret
 OLLAMA_URL=http://localhost:11434
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 **Frontend (`frontend/.env`)**
@@ -144,9 +145,9 @@ Dự án này tập trung xây dựng một **Nền tảng học trực tuyến 
 *   **Frontend**: ReactJS (Vite), Socket.io-client, Simple-Peer (WebRTC)
 *   **Backend**: Node.js, ExpressJS
 *   **Database**: MongoDB
-*   **AI Engine**:
-    *   Runtime: Ollama (Local)
-    *   Model: Qwen-2.5-1.5B (hoặc tương tự)
+*   **AI Engine (Kiến trúc Hybrid AI)**:
+    *   Generation (Cloud): GROQ API (llama-3.3-70b-versatile) cho tốc độ và độ chính xác cao
+    *   Embeddings (Local): Ollama (nomic-embed-text) bảo vệ dữ liệu tài liệu nội bộ
     *   Orchestration: LangChain.js
 *   **Kiến trúc**: Monolithic Modular
 *   **Ảo hoá**: Docker & Docker Compose
@@ -179,7 +180,7 @@ Dự án này tập trung xây dựng một **Nền tảng học trực tuyến 
 2.  **Mã hóa (Embedding)**: nomic-embed-text
 3.  **Tìm kiếm Vector (Vector Search)**: HNSW index
 4.  **Khớp tương đồng (Similarity Matching)**: Cosine Similarity
-5.  **Sinh câu trả lời (Answer Generation)**: Mô hình Qwen dựa trên Transformer
+5.  **Sinh câu trả lời (Answer Generation)**: Mô hình Llama-3.3-70B thông qua GROQ API
 
 ### 6. Ý nghĩa thực tiễn
 
@@ -213,6 +214,7 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/online-learning-ai
 JWT_SECRET=your_jwt_strong_secret
 OLLAMA_URL=http://localhost:11434
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 **Frontend (`frontend/.env`)**
