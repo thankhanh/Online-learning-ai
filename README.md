@@ -1,5 +1,7 @@
 ## Online Learning & Real-time Exam System with Local AI Tutor
 
+![Project Screenshot](docs/screenshot.png)
+
 ### 1. Introduction
 
 This project focuses on building an **All-in-one online learning platform** that combines real-time virtual classrooms with a strict online examination system. The key highlight is the integration of a **self-hosted AI Tutor** using Retrieval-Augmented Generation (RAG), capable of understanding teaching materials instantly and assisting lecturers during live classes. The system is designed to run efficiently on limited hardware such as personal laptops or small servers.
@@ -123,6 +125,8 @@ This will start the frontend, backend, MongoDB, and Ollama in isolated container
 ---
 
 ## Hệ thống Học trực tuyến & Thi thời gian thực với Gia sư AI cục bộ
+
+![Project Screenshot](docs/screenshot.png)
 
 ### 1. Giới thiệu
 
