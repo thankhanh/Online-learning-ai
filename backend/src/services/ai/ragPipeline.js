@@ -68,8 +68,8 @@ class RagPipeline {
             }
 
             const textSplitter = new RecursiveCharacterTextSplitter({
-                chunkSize: 1000,
-                chunkOverlap: 200,
+                chunkSize: 500,
+                chunkOverlap: 100,
             });
 
             const docs = await textSplitter.createDocuments([text], [metadata]);
@@ -97,18 +97,27 @@ class RagPipeline {
             console.log(`AI Search Query: "${query}"`);
             console.log(`AI Search Filter: ${JSON.stringify(filter)}`);
 
-            let results = await vectorStore.similaritySearch(query, 4, filter);
-            console.log(`AI Search (Filtered): Found ${results.length} chunks.`);
-
-            // Fallback for debugging: If filtered search returns 0, try without filter
-            if (results.length === 0 && Object.keys(filter).length > 0) {
-                console.log("Empty results with filter. Trying search WITHOUT filter for debugging...");
-                const resultsNoFilter = await vectorStore.similaritySearch(query, 2);
-                if (resultsNoFilter.length > 0) {
-                    console.warn("⚠️ Found results WITHOUT filter! This confirms the Search Index 'filter' mapping might be missing or classroomId doesn't match.");
+            let results;
+            try {
+                results = await vectorStore.similaritySearch(query, 10, filter);
+            } catch (searchError) {
+                if (searchError.message.includes("needs to be indexed as filter")) {
+                    console.warn("⚠️ Database filter index missing. Falling back to manual filtering.");
+                    // Fallback: search without filter and filter manually in-memory
+                    const allResults = await vectorStore.similaritySearch(query, 20);
+                    results = allResults.filter(doc => {
+                        let match = true;
+                        if (filter.classroomId && doc.metadata.classroomId !== filter.classroomId) match = false;
+                        if (filter.materialId && doc.metadata.materialId !== filter.materialId) match = false;
+                        return match;
+                    }).slice(0, 4); // Keep only top 4 matches after filtering
+                } else {
+                    throw searchError;
                 }
             }
 
+            console.log(`AI Search: Found ${results.length} relevant chunks.`);
+            
             if (results.length === 0) {
                 return "";
             }

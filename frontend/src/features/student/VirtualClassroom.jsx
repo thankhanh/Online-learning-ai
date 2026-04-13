@@ -1,778 +1,671 @@
-/**
- * VirtualClassroom.jsx
- * Phòng học trực tuyến — Google Meet style
- * Hỗ trợ: Video, Mic, Screen Share, Chat, AI Tutor
- * WebRTC thông qua hook useMeeting
- */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Button, Form, InputGroup, Badge } from 'react-bootstrap';
-import { io } from 'socket.io-client';
-import { useMeeting } from '../../hooks/useMeeting';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Form, InputGroup, Tab, Tabs, Badge } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
+import Peer from 'simple-peer';
+import api from '../../utils/api';
+import toast from 'react-hot-toast';
 
-// Kết nối tới namespace /meeting
-const meetingSocket = io('http://localhost:5000/meeting', { autoConnect: false });
 
-// ─── Video Tile Component ─────────────────────────────────────────────────────
-function VideoTile({ stream, userInfo, isMicOn = true, isCameraOn = true, isLocal = false, isLarge = false }) {
-    const videoRef = useRef(null);
-
+const VideoStream = ({ stream, muted = false }) => {
+    const ref = useRef();
     useEffect(() => {
-        if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream;
+        if (ref.current && stream) {
+            ref.current.srcObject = stream;
         }
-    }, [stream]);
+    }, [stream, stream?.id]); // Re-assign if stream ID changes
 
     return (
-        <div
-            style={{
-                position: 'relative',
-                background: '#1a1a2e',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                border: '2px solid rgba(255,255,255,0.1)',
-                transition: 'border-color 0.2s',
-                width: '100%',
-                height: '100%',
-                minHeight: isLarge ? '300px' : '160px',
-            }}
-        >
-            {/* Video Element */}
-            {stream && isCameraOn ? (
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted={isLocal}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transform: isLocal ? 'scaleX(-1)' : 'none',
-                    }}
-                />
-            ) : (
-                // Avatar placeholder khi camera tắt
-                <div style={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-                }}>
-                    <div style={{
-                        width: isLarge ? '80px' : '56px',
-                        height: isLarge ? '80px' : '56px',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: isLarge ? '2rem' : '1.5rem',
-                        fontWeight: 700,
-                        color: '#fff',
-                        marginBottom: '0.5rem',
-                    }}>
-                        {userInfo?.name?.charAt(0)?.toUpperCase() || '?'}
-                    </div>
-                    <span style={{ color: '#a0aec0', fontSize: '0.85rem' }}>{userInfo?.name || 'Unknown'}</span>
-                </div>
-            )}
-
-            {/* Overlay thông tin phía dưới */}
-            <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '6px 10px',
-                background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-            }}>
-                <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 600 }}>
-                    {userInfo?.name || 'Unknown'} {isLocal ? '(Bạn)' : ''}
-                    {userInfo?.role === 'teacher' && (
-                        <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.65rem' }}>GV</Badge>
-                    )}
-                </span>
-                {!isMicOn && (
-                    <i className="bi bi-mic-mute-fill text-danger" style={{ fontSize: '0.9rem' }}></i>
-                )}
-            </div>
-        </div>
+        <video
+            playsInline
+            autoPlay
+            muted={muted}
+            ref={ref}
+            className="w-100 h-100 object-fit-cover bg-black"
+        />
     );
 }
 
-// ─── Main VirtualClassroom Component ─────────────────────────────────────────
 export default function VirtualClassroom() {
-    const { id: roomId } = useParams();
+    const { id } = useParams();
     const navigate = useNavigate();
+    const classId = id || 'demo-class';
 
-    // Lấy thông tin user từ localStorage
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userInfo = { name: user.name || user.email || 'Người dùng', role: user.role || 'student', userId: user._id || user.id };
-
-    // ── Media States ──────────────────────────────────────────────────────────
-    const [isMicOn, setIsMicOn] = useState(false);
-    const [isCameraOn, setIsCameraOn] = useState(false);
-    const [isScreenSharing, setIsScreenSharing] = useState(false);
-    const [localStream, setLocalStream] = useState(null);
-    const [screenStream, setScreenStream] = useState(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isJoined, setIsJoined] = useState(false);
-
-    // ── Chat States ───────────────────────────────────────────────────────────
-    const [chatMode, setChatMode] = useState('class'); // 'class' | 'ai'
-    const [messages, setMessages] = useState([
-        { id: 1, sender: 'Hệ thống', text: `Chào mừng đến phòng học ${roomId}! 👋` },
-    ]);
-    const [aiMessages, setAiMessages] = useState([
-        { id: 1, sender: 'AI Tutor', text: 'Chào bạn! Tôi có thể giải đáp thắc mắc về bài học hôm nay.', isAi: true },
-    ]);
+    const [peers, setPeers] = useState([]);
+    const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
-    const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'people'
-    const chatEndRef = useRef(null);
+    const [activeTab, setActiveTab] = useState('chat');
+    const [chatMode, setChatMode] = useState('class'); // 'class' or 'ai'
+    const [aiMessages, setAiMessages] = useState([]);
+    const [isAiTyping, setIsAiTyping] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState('');
+    const [cameraError, setCameraError] = useState('');
+    const [pinnedPeerId, setPinnedPeerId] = useState(null); // null or peerID
+    const [remoteStreams, setRemoteStreams] = useState({}); // { peerID: stream }
+    const [sharingUserId, setSharingUserId] = useState(null); // ID of user who is currently sharing screen
+    const [localStream, setLocalStream] = useState(null); // State for the local stream rendering
+    const [className, setClassName] = useState('');
 
-    // ── Screen Share Ref ──────────────────────────────────────────────────────
-    const screenVideoRef = useRef(null);
 
-    // ── Socket & WebRTC ───────────────────────────────────────────────────────
-    const { peers } = useMeeting({
-        socket: isJoined ? meetingSocket : null,
-        roomId,
-        userInfo,
-        localStream,
-    });
+    // Controls state
+    const [isVideoOn, setIsVideoOn] = useState(true);
+    const [isAudioOn, setIsAudioOn] = useState(true);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
 
-    // ── Connect Socket khi vào trang ──────────────────────────────────────────
+    const socketRef = useRef();
+    const peersRef = useRef([]);
+    const streamRef = useRef(); // Original camera stream
+    const activeStreamRef = useRef(); // Currently broadcasting stream (camera or screen)
+    const screenTrackRef = useRef(null);
+
+
+    // The user running this client
+    const currentUser = JSON.parse(localStorage.getItem('user')) || { username: 'Guest_' + Math.floor(Math.random() * 100) };
+
     useEffect(() => {
-        meetingSocket.connect();
+        if (classId && classId !== 'demo-class') {
+            api.get(`/classrooms/${classId}`)
+                .then(res => {
+                    if (res.data.success && res.data.classroom) {
+                        const classroom = res.data.classroom;
+                        setClassName(classroom.name);
+                        
+                        // Time Restriction Logic for Students
+                        if (currentUser.role === 'student' && classroom.schedule && Array.isArray(classroom.schedule)) {
+                            const checkTime = () => {
+                                const now = new Date();
+                                const dayMap = { 'Chủ Nhật': 0, 'Thứ 2': 1, 'Thứ 3': 2, 'Thứ 4': 3, 'Thứ 5': 4, 'Thứ 6': 5, 'Thứ 7': 6 };
+                                const currentDay = now.getDay();
+                                
+                                // Find any schedule slot active for TODAY or starting YESTERDAY (overnight)
+                                const isAnyActive = classroom.schedule.some(slot => {
+                                    const lessonDay = dayMap[slot.dayOfWeek];
+                                    const [startH, startM] = slot.startTime.split(':').map(Number);
+                                    const [endH, endM] = slot.endTime.split(':').map(Number);
+                                    const isOvernight = (endH < startH) || (endH === startH && endM < startM);
 
-        meetingSocket.on('connect', () => {
-            console.log('[Meeting] Socket connected:', meetingSocket.id);
-            setIsConnected(true);
+                                    if (currentDay === lessonDay) {
+                                        const startTime = new Date();
+                                        startTime.setHours(startH, startM, 0, 0);
+                                        const endTime = new Date();
+                                        endTime.setHours(endH, endM, 0, 0);
+                                        if (isOvernight) endTime.setDate(endTime.getDate() + 1);
+
+                                        const earlyAccessTime = new Date(startTime.getTime() - 5 * 60 * 1000);
+                                        return now >= earlyAccessTime && now <= endTime;
+                                    } else if (currentDay === (lessonDay + 1) % 7 && isOvernight) {
+                                        // "Tail" of overnight class from yesterday
+                                        const endTime = new Date();
+                                        endTime.setHours(endH, endM, 0, 0);
+                                        return now <= endTime;
+                                    }
+                                    return false;
+                                });
+
+                                if (!isAnyActive) {
+                                    toast.error('Hiện tại không có lịch học cho lớp này hoặc buổi học đã kết thúc.');
+                                    navigate('/dashboard');
+                                }
+                            };
+
+                            // Check immediately on entry
+                            checkTime();
+
+                            // Set interval to check every 30 seconds for auto-exit
+                            const intervalId = setInterval(checkTime, 30000);
+                            return () => clearInterval(intervalId);
+                        }
+                    }
+                })
+                .catch(err => console.error('Error fetching classroom info:', err));
+        }
+    }, [classId, currentUser.role, navigate]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
+        socketRef.current = socket;
+        let localStreamTemp = null;
+
+        const myName = currentUser.name || currentUser.username || 'Khách';
+
+        // Basic socket listeners that don't need media
+        socket.on("new-message", data => {
+            if (isMounted) setMessages(prev => {
+                // Prevent duplicate messages by ID
+                if (data.id && prev.some(m => m.id === data.id)) return prev;
+                return [...prev, data];
+            });
         });
 
-        meetingSocket.on('disconnect', () => {
-            setIsConnected(false);
-            setIsJoined(false);
+        socket.on("user-disconnected", userID => {
+            if (!isMounted) return;
+            const peerObj = peersRef.current.find(p => p.peerID === userID);
+            if (peerObj) peerObj.peer.destroy();
+            const newPeers = peersRef.current.filter(p => p.peerID !== userID);
+            peersRef.current = newPeers;
+            setPeers(newPeers);
+            setRemoteStreams(prev => {
+                const updated = { ...prev };
+                delete updated[userID];
+                return updated;
+            });
+            if (pinnedPeerId === userID) setPinnedPeerId(null);
         });
 
-        // Nhận chat message từ người khác
-        meetingSocket.on('new-message', (msg) => {
-            setMessages((prev) => [...prev, { ...msg, id: Date.now() }]);
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+            if (!isMounted) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+
+            localStreamTemp = stream;
+            streamRef.current = stream;
+            activeStreamRef.current = stream;
+            setLocalStream(stream);
+
+            socket.emit("join-class", { classId, username: myName, role: currentUser.role });
+
+            socket.on("all-users", users => {
+                const newPeers = [];
+                users.forEach(userObj => {
+                    const peer = createPeer(userObj.id, socket.id, activeStreamRef.current, socket, myName);
+                    peer.on("stream", remoteStream => {
+                        setRemoteStreams(prev => ({ ...prev, [userObj.id]: remoteStream }));
+                    });
+                    peersRef.current.push({ peerID: userObj.id, username: userObj.username, role: userObj.role, isSharing: userObj.isSharing, peer });
+                    newPeers.push({ peerID: userObj.id, username: userObj.username, role: userObj.role, isSharing: userObj.isSharing, peer });
+
+                    // Auto-pin lecturer or screen share
+                    if (userObj.isSharing) {
+                        setSharingUserId(userObj.id);
+                        setPinnedPeerId(userObj.id);
+                    } else if (userObj.role === 'lecturer' && !newPeers.some(p => p.isSharing)) {
+                        setPinnedPeerId(userObj.id);
+                    }
+                });
+
+                setPeers(newPeers);
+            });
+
+            socket.on("user-connected", userObj => {
+                // If the new user is a lecturer and no one is sharing, pin them
+                if (userObj.role === 'lecturer' && !sharingUserId) {
+                    setPinnedPeerId(userObj.id);
+                }
+            });
+
+            socket.on("screen-share-status", data => {
+                if (data.isSharing) {
+                    setSharingUserId(data.userID);
+                    setPinnedPeerId(data.userID); // Auto-pin when someone shares
+                } else {
+                    setSharingUserId(null);
+                    // If shared user was pinned, maybe reset to lecturer?
+                    setPinnedPeerId(prev => {
+                        if (prev === data.userID) {
+                            const lecturer = peersRef.current.find(p => p.role === 'lecturer');
+                            return lecturer ? lecturer.peerID : null;
+                        }
+                        return prev;
+                    });
+                }
+            });
+
+            socket.on("webrtc-offer", payload => {
+                const existing = peersRef.current.find(p => p.peerID === payload.callerID);
+                if (existing) {
+                    existing.peer.signal(payload.signal);
+                    return;
+                }
+                const peer = addPeer(payload.signal, payload.callerID, activeStreamRef.current, socket);
+                peer.on("stream", remoteStream => {
+                    setRemoteStreams(prev => ({ ...prev, [payload.callerID]: remoteStream }));
+                });
+                peersRef.current.push({ peerID: payload.callerID, username: payload.callerName, role: payload.role || 'student', isSharing: payload.isSharing || false, peer });
+                setPeers(users => [...users, { peerID: payload.callerID, username: payload.callerName, role: payload.role || 'student', isSharing: payload.isSharing || false, peer }]);
+
+                if (payload.isSharing) {
+                    setSharingUserId(payload.callerID);
+                    setPinnedPeerId(payload.callerID);
+                }
+            });
+
+            socket.on("webrtc-answer", payload => {
+                const item = peersRef.current.find(p => p.peerID === payload.id);
+                if (item) {
+                    item.peer.signal(payload.signal);
+                }
+            });
+        }).catch(err => {
+            console.error("Failed to access media devices", err);
+            if (isMounted) setCameraError(err.message || 'Không thể lấy luồng Camera/Mic.');
         });
 
         return () => {
-            meetingSocket.off('connect');
-            meetingSocket.off('disconnect');
-            meetingSocket.off('new-message');
-            meetingSocket.disconnect();
-            // Dọn dẹp media
-            if (localStream) localStream.getTracks().forEach((t) => t.stop());
-            if (screenStream) screenStream.getTracks().forEach((t) => t.stop());
-        };
-    }, []);
-
-    // Auto scroll chat
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, aiMessages]);
-
-    // Cập nhật screen video ref
-    useEffect(() => {
-        if (screenVideoRef.current && screenStream) {
-            screenVideoRef.current.srcObject = screenStream;
-        }
-    }, [screenStream]);
-
-    // Broadcast trạng thái media khi thay đổi
-    useEffect(() => {
-        if (isJoined) {
-            meetingSocket.emit('media-state-change', { roomId, isMicOn, isCameraOn });
-        }
-    }, [isMicOn, isCameraOn, isJoined, roomId]);
-
-    // ── Handlers ──────────────────────────────────────────────────────────────
-
-    const handleJoinMeeting = async () => {
-        // Bật camera + mic khi join
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            setLocalStream(stream);
-            setIsMicOn(true);
-            setIsCameraOn(true);
-        } catch (err) {
-            console.warn('[Meeting] Could not get media:', err);
-            // Tham gia mà không có media cũng được
-        }
-        setIsJoined(true);
-    };
-
-    const toggleMic = useCallback(() => {
-        if (!localStream) return;
-        const track = localStream.getAudioTracks()[0];
-        if (track) {
-            track.enabled = !isMicOn;
-            setIsMicOn(!isMicOn);
-        }
-    }, [localStream, isMicOn]);
-
-    const toggleCamera = useCallback(async () => {
-        if (isCameraOn) {
-            localStream?.getVideoTracks().forEach((t) => { t.enabled = false; });
-            setIsCameraOn(false);
-        } else {
-            if (localStream?.getVideoTracks().length > 0) {
-                localStream.getVideoTracks()[0].enabled = true;
-                setIsCameraOn(true);
-            } else {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: isMicOn });
-                    setLocalStream(stream);
-                    setIsCameraOn(true);
-                } catch (err) {
-                    alert('Không thể truy cập camera.');
-                }
+            isMounted = false;
+            socket.disconnect();
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
             }
+            peersRef.current.forEach(p => p.peer.destroy());
+            peersRef.current = [];
+            setPeers([]);
+            setRemoteStreams({});
         }
-    }, [isCameraOn, localStream, isMicOn]);
 
-    const toggleScreenShare = useCallback(async () => {
-        if (isScreenSharing) {
-            screenStream?.getTracks().forEach((t) => t.stop());
-            setScreenStream(null);
-            setIsScreenSharing(false);
-            meetingSocket.emit('screen-share-stop', { roomId });
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                stream.getVideoTracks()[0].onended = () => {
-                    setIsScreenSharing(false);
-                    setScreenStream(null);
-                    meetingSocket.emit('screen-share-stop', { roomId });
-                };
-                setScreenStream(stream);
-                setIsScreenSharing(true);
-                meetingSocket.emit('screen-share-start', { roomId });
-            } catch (err) {
-                console.error('Screen share error:', err);
-            }
-        }
-    }, [isScreenSharing, screenStream, roomId]);
+    }, [classId]);
 
-    const handleEndCall = useCallback(() => {
-        localStream?.getTracks().forEach((t) => t.stop());
-        screenStream?.getTracks().forEach((t) => t.stop());
-        meetingSocket.disconnect();
-        navigate('/dashboard');
-    }, [localStream, screenStream, navigate]);
+    function createPeer(userToSignal, callerID, stream, socketInstance, callerName) {
+        const peer = new Peer({
+            initiator: true,
+            trickle: true,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }] },
+            stream,
+        });
+
+        peer.on("signal", signal => {
+            socketInstance.emit("webrtc-offer", { userToSignal, callerID, callerName, role: currentUser.role, isSharing: isScreenSharing, signal });
+        });
+
+        return peer;
+    }
+
+    function addPeer(incomingSignal, callerID, stream, socketInstance) {
+        const peer = new Peer({
+            initiator: false,
+            trickle: true,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }] },
+            stream,
+        });
+
+        peer.on("signal", signal => {
+            socketInstance.emit("webrtc-answer", { signal, callerID });
+        });
+
+        peer.signal(incomingSignal);
+
+        return peer;
+    }
 
     const handleSendMessage = () => {
         if (!inputValue.trim()) return;
-        if (chatMode === 'class') {
-            const msg = { sender: userInfo.name, text: inputValue };
-            meetingSocket.emit('chat-message', { roomId, ...msg });
-            setMessages((prev) => [...prev, { ...msg, id: Date.now(), isMine: true }]);
-        } else {
-            setAiMessages((prev) => [...prev, { id: Date.now(), sender: 'Me', text: inputValue, isAi: false }]);
-            setTimeout(() => {
-                setAiMessages((prev) => [...prev, {
-                    id: Date.now() + 1,
-                    sender: 'AI Tutor',
-                    text: `Trả lời về "${inputValue}": Đây là câu hỏi thú vị! Dựa trên tài liệu lớp học, mạng nơ-ron nhân tạo (ANN) mô phỏng hoạt động của não người...`,
-                    source: 'Chuong_2_ML_Co_ban.pdf (Trang 12)',
-                    isAi: true,
-                }]);
-            }, 1200);
+
+        if (chatMode === 'ai') {
+            handleSendAiMessage(inputValue);
+            return;
         }
+
+        const msg = {
+            id: Date.now(),
+            classId,
+            sender: currentUser.name || currentUser.username || 'Khách',
+            text: inputValue,
+        };
+        socketRef.current.emit('chat-message', msg);
         setInputValue('');
     };
 
-    // ── Grid Layout tính toán ─────────────────────────────────────────────────
-    const peerArray = [...peers.entries()]; // [[socketId, { peer, stream, userInfo, isMicOn, isCameraOn }]]
-    const totalParticipants = peerArray.length + 1; // +1 cho local
+    const handleSendAiMessage = async (text) => {
+        const newMsg = { sender: 'Bạn', text, isAi: false };
+        setAiMessages(prev => [...prev, newMsg]);
+        setInputValue('');
+        setIsAiTyping(true);
 
-    const getGridStyle = () => {
-        if (totalParticipants <= 1) return { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' };
-        if (totalParticipants === 2) return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr' };
-        if (totalParticipants <= 4) return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' };
-        return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'auto' };
+        try {
+            const res = await api.post('/ai/ask', { 
+                question: text,
+                classroomId: classId
+            });
+            if (res.data.success) {
+                setAiMessages(prev => [...prev, { sender: 'Gia sư AI', text: res.data.answer, isAi: true }]);
+            } else {
+                setAiMessages(prev => [...prev, { sender: 'Hệ thống', text: 'Lỗi: Không thể nhận câu trả lời từ AI.', isAi: true, error: true }]);
+            }
+        } catch (error) {
+            setAiMessages(prev => [...prev, { sender: 'Hệ thống', text: 'Lỗi kết nối tới AI Tutor. ' + (error.response?.data?.message || ''), isAi: true, error: true }]);
+        } finally {
+            setIsAiTyping(false);
+        }
     };
 
-    // ── Lobby Screen (chưa join) ───────────────────────────────────────────────
-    if (!isJoined) {
-        return (
-            <div style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}>
-                <div style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '24px',
-                    padding: '3rem',
-                    maxWidth: '440px',
-                    width: '90%',
-                    textAlign: 'center',
-                    color: '#fff',
-                }}>
-                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎓</div>
-                    <h2 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Phòng học trực tuyến</h2>
-                    <p style={{ color: '#a0aec0', marginBottom: '0.25rem' }}>Mã phòng: <strong style={{ color: '#818cf8' }}>{roomId}</strong></p>
-                    <p style={{ color: '#a0aec0', marginBottom: '2rem' }}>
-                        Xin chào, <strong style={{ color: '#fff' }}>{userInfo.name}</strong>!
-                    </p>
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-                    <div style={{
-                        background: 'rgba(79, 70, 229, 0.15)',
-                        border: '1px solid rgba(79, 70, 229, 0.3)',
-                        borderRadius: '12px',
-                        padding: '1rem',
-                        marginBottom: '1.5rem',
-                        textAlign: 'left',
-                        fontSize: '0.9rem',
-                        color: '#c7d2fe',
-                    }}>
-                        <p className="mb-1">✅ Camera và Mic sẽ được bật khi tham gia</p>
-                        <p className="mb-1">✅ Có thể chia sẻ màn hình</p>
-                        <p className="mb-0">✅ Chat nhóm và AI Tutor</p>
-                    </div>
+        const formData = new FormData();
+        formData.append('file', file);
 
-                    <button
-                        onClick={handleJoinMeeting}
-                        disabled={!isConnected}
-                        style={{
-                            width: '100%',
-                            padding: '14px',
-                            background: isConnected
-                                ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
-                                : '#374151',
-                            border: 'none',
-                            borderRadius: '12px',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '1rem',
-                            cursor: isConnected ? 'pointer' : 'not-allowed',
-                            transition: 'opacity 0.2s',
-                        }}
-                    >
-                        {isConnected ? '🚀 Tham gia ngay' : '⏳ Đang kết nối...'}
-                    </button>
-                </div>
-            </div>
-        );
+        setIsUploading(true);
+        setUploadStatus('Đang tải tài liệu...');
+        try {
+            const res = await api.post('/ai/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (res.data.success) {
+                setUploadStatus(`Thành công! Đã nạp ${res.data.chunks} đoạn kiến thức.`);
+                setAiMessages(prev => [...prev, {
+                    sender: 'Hệ thống',
+                    text: `Giảng viên vừa cập nhật tài liệu lớp học (${file.name}). Giờ bạn có thể hỏi AI về nội dung này!`,
+                    isAi: true
+                }]);
+            }
+        } catch (error) {
+            setUploadStatus('Lỗi tải tài liệu.');
+            console.error(error);
+        } finally {
+            setIsUploading(false);
+            setTimeout(() => setUploadStatus(''), 5000);
+        }
+    };
+
+    const toggleAudio = () => {
+        const audioTrack = streamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            setIsAudioOn(audioTrack.enabled);
+        }
+    };
+
+    const toggleVideo = () => {
+        const videoTrack = streamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            setIsVideoOn(videoTrack.enabled);
+        }
+    };
+
+    const toggleScreenShare = async () => {
+        if (currentUser.role !== 'lecturer') {
+            toast.error('Chỉ giảng viên mới có quyền chia sẻ màn hình.');
+            return;
+        }
+
+        if (!isScreenSharing) {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ cursor: true });
+                setIsScreenSharing(true);
+                const screenVideoTrack = screenStream.getVideoTracks()[0];
+                screenTrackRef.current = screenVideoTrack;
+
+                // Create a new active stream to share to late joiners
+                const newActiveStream = new MediaStream([screenVideoTrack]);
+                const audioTracks = streamRef.current.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    newActiveStream.addTrack(audioTracks[0]);
+                }
+                activeStreamRef.current = newActiveStream;
+                setLocalStream(newActiveStream);
+
+                peersRef.current.forEach(peerObj => {
+                    const currentVideoTrack = streamRef.current.getVideoTracks()[0];
+                    if (currentVideoTrack) {
+                        peerObj.peer.replaceTrack(currentVideoTrack, screenVideoTrack, streamRef.current);
+                    }
+                });
+
+                screenVideoTrack.onended = () => {
+                    stopScreenShare();
+                };
+
+                // Notify others
+                socketRef.current.emit('screen-share-status', { classId, isSharing: true });
+            } catch (err) {
+                console.error("Screen sharing failed", err);
+            }
+        } else {
+            stopScreenShare();
+        }
+    };
+
+    const stopScreenShare = () => {
+        const currentVideoTrack = streamRef.current.getVideoTracks()[0];
+        const screenTrack = screenTrackRef.current;
+
+        activeStreamRef.current = streamRef.current;
+        setLocalStream(streamRef.current);
+
+        peersRef.current.forEach(peerObj => {
+            if (screenTrack && currentVideoTrack) {
+                peerObj.peer.replaceTrack(screenTrack, currentVideoTrack, activeStreamRef.current);
+            }
+        });
+
+        if (screenTrack) {
+            screenTrack.stop();
+            screenTrackRef.current = null;
+        }
+        setIsScreenSharing(false);
+        // Notify others
+        socketRef.current.emit('screen-share-status', { classId, isSharing: false });
     }
 
-    // ── Main Meeting UI ───────────────────────────────────────────────────────
     return (
-        <div style={{
-            height: '100vh',
-            background: '#0f1117',
-            display: 'flex',
-            flexDirection: 'column',
-            fontFamily: "'Inter', sans-serif",
-            overflow: 'hidden',
-        }}>
-            {/* ── Header ──────────────────────────────────────────────── */}
-            <div style={{
-                height: '54px',
-                background: '#16181d',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 20px',
-                flexShrink: 0,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>🎓 EduMeet</span>
-                    <Badge bg="danger" style={{ animation: 'pulse 2s infinite', fontSize: '0.7rem' }}>🔴 LIVE</Badge>
+        <div className="virtual-classroom bg-light vh-100 d-flex flex-column">
+            <div className="classroom-header p-3 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center z-2">
+                <div className="d-flex align-items-center">
+                    <Button variant="light" size="sm" className="me-3 fw-bold text-secondary shadow-sm" onClick={() => navigate('/dashboard')}><i className="bi bi-arrow-left"></i> Thoát</Button>
+                    <h5 className="m-0 fw-800 text-dark">Lớp {className || classId}</h5>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#a0aec0', fontSize: '0.85rem' }}>
-                        Phòng: <strong style={{ color: '#818cf8' }}>{roomId}</strong>
-                    </span>
-                    <span style={{ color: '#4ade80', fontSize: '0.8rem' }}>
-                        <i className="bi bi-people-fill"></i> {totalParticipants} người
-                    </span>
+                <div>
+                    <Badge bg="danger" className="me-2 animate-pulse px-3 py-2 rounded-pill shadow-sm">🔴 LIVE</Badge>
                 </div>
             </div>
 
-            {/* ── Body ────────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-                {/* ── Video Area ──────────────────────────────────────── */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px', gap: '10px', overflow: 'hidden' }}>
-
-                    {/* Main screen share view */}
-                    {isScreenSharing && (
-                        <div style={{
-                            flex: 1,
-                            background: '#000',
-                            borderRadius: '12px',
-                            overflow: 'hidden',
-                            border: '2px solid #4f46e5',
-                        }}>
-                            <video
-                                ref={screenVideoRef}
-                                autoPlay
-                                playsInline
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            />
-                            <div style={{
-                                position: 'absolute',
-                                top: '10px',
-                                left: '10px',
-                                background: 'rgba(79,70,229,0.9)',
-                                color: '#fff',
-                                padding: '4px 10px',
-                                borderRadius: '20px',
-                                fontSize: '0.8rem',
-                            }}>
-                                📺 Đang chia sẻ màn hình
+            <div className="flex-grow-1 d-flex overflow-hidden">
+                <div className="flex-grow-1 p-3 d-flex flex-column" style={{ maxWidth: '75%' }}>
+                    <div className="flex-grow-1 bg-dark rounded-4 position-relative mb-3 d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+                        {cameraError ? (
+                            <div className="text-center p-4 bg-white rounded-4 text-danger border border-danger shadow w-75 position-absolute z-3">
+                                <h5 className="fw-bold"><i className="bi bi-exclamation-triangle"></i> Lỗi thiết bị</h5>
+                                <p>{cameraError}</p>
+                                <small className="text-muted">Vui lòng cấp quyền Camera/Mic trên trình duyệt (hiển thị ổ khóa trên thanh URL) hoặc cắm camera và tải lại trang (F5).</small>
                             </div>
-                        </div>
-                    )}
+                        ) : null}
 
-                    {/* Video Grid */}
-                    <div style={{
-                        flex: isScreenSharing ? '0 0 180px' : 1,
-                        display: 'grid',
-                        ...getGridStyle(),
-                        gap: '10px',
-                        overflow: 'hidden',
-                    }}>
-                        {/* Local Video */}
-                        <VideoTile
-                            stream={localStream}
-                            userInfo={userInfo}
-                            isMicOn={isMicOn}
-                            isCameraOn={isCameraOn}
-                            isLocal={true}
-                            isLarge={totalParticipants <= 2}
-                        />
-
-                        {/* Remote Peers */}
-                        {peerArray.map(([socketId, { stream, userInfo: peerInfo, isMicOn: pMic, isCameraOn: pCam }]) => (
-                            <VideoTile
-                                key={socketId}
-                                stream={stream}
-                                userInfo={peerInfo}
-                                isMicOn={pMic}
-                                isCameraOn={pCam}
-                                isLocal={false}
-                                isLarge={totalParticipants <= 2}
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                {/* ── Right Sidebar ────────────────────────────────────── */}
-                <div style={{
-                    width: '320px',
-                    background: '#16181d',
-                    borderLeft: '1px solid rgba(255,255,255,0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    flexShrink: 0,
-                }}>
-                    {/* Tab Header */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        {[
-                            { key: 'chat', label: '💬 Chat' },
-                            { key: 'people', label: `👥 (${totalParticipants})` },
-                        ].map((tab) => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    background: 'none',
-                                    border: 'none',
-                                    borderBottom: activeTab === tab.key ? '2px solid #4f46e5' : '2px solid transparent',
-                                    color: activeTab === tab.key ? '#818cf8' : '#6b7280',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    fontSize: '0.85rem',
-                                }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Tab Content */}
-                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {activeTab === 'chat' ? (
-                            <>
-                                {/* Chat Mode Toggle */}
-                                <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '8px' }}>
-                                    {['class', 'ai'].map((mode) => (
-                                        <button
-                                            key={mode}
-                                            onClick={() => setChatMode(mode)}
-                                            style={{
-                                                flex: 1,
-                                                padding: '6px',
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                background: chatMode === mode
-                                                    ? (mode === 'class' ? 'rgba(79,70,229,0.3)' : 'rgba(34,197,94,0.2)')
-                                                    : 'rgba(255,255,255,0.05)',
-                                                color: chatMode === mode
-                                                    ? (mode === 'class' ? '#818cf8' : '#4ade80')
-                                                    : '#6b7280',
-                                                fontWeight: 600,
-                                                fontSize: '0.8rem',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            {mode === 'class' ? '👥 Lớp học' : '✨ AI Tutor'}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Messages */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
-                                    {chatMode === 'class' ? (
-                                        messages.map((msg) => (
-                                            <div key={msg.id} style={{ marginBottom: '10px' }}>
-                                                <div style={{
-                                                    fontSize: '0.75rem',
-                                                    color: msg.isMine ? '#818cf8' : '#4ade80',
-                                                    fontWeight: 600,
-                                                    marginBottom: '2px',
-                                                }}>
-                                                    {msg.sender}
-                                                </div>
-                                                <div style={{
-                                                    background: msg.isMine ? 'rgba(79,70,229,0.2)' : 'rgba(255,255,255,0.06)',
-                                                    border: `1px solid ${msg.isMine ? 'rgba(79,70,229,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                                                    borderRadius: '10px',
-                                                    padding: '8px 12px',
-                                                    color: '#e2e8f0',
-                                                    fontSize: '0.875rem',
-                                                }}>
-                                                    {msg.text}
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        aiMessages.map((msg) => (
-                                            <div key={msg.id} style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'Me' ? 'flex-end' : 'flex-start' }}>
-                                                <div style={{
-                                                    maxWidth: '90%',
-                                                    background: msg.isAi ? 'rgba(34,197,94,0.1)' : 'rgba(79,70,229,0.2)',
-                                                    border: `1px solid ${msg.isAi ? 'rgba(34,197,94,0.3)' : 'rgba(79,70,229,0.3)'}`,
-                                                    borderRadius: '10px',
-                                                    padding: '8px 12px',
-                                                    color: '#e2e8f0',
-                                                    fontSize: '0.875rem',
-                                                }}>
-                                                    {msg.isAi && <div style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', marginBottom: '4px' }}>🤖 AI Tutor</div>}
-                                                    {msg.text}
-                                                    {msg.source && (
-                                                        <div style={{ marginTop: '6px', color: '#60a5fa', fontSize: '0.75rem' }}>
-                                                            📎 {msg.source}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                    <div ref={chatEndRef} />
-                                </div>
-
-                                {/* Input */}
-                                <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <input
-                                            type="text"
-                                            placeholder={chatMode === 'class' ? 'Nhắn tin...' : 'Hỏi AI Tutor...'}
-                                            value={inputValue}
-                                            onChange={(e) => setInputValue(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            style={{
-                                                flex: 1,
-                                                background: 'rgba(255,255,255,0.06)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: '10px',
-                                                padding: '8px 12px',
-                                                color: '#fff',
-                                                fontSize: '0.875rem',
-                                                outline: 'none',
-                                            }}
-                                        />
-                                        <button
-                                            onClick={handleSendMessage}
-                                            style={{
-                                                padding: '8px 14px',
-                                                background: chatMode === 'class' ? '#4f46e5' : '#16a34a',
-                                                border: 'none',
-                                                borderRadius: '10px',
-                                                color: '#fff',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            <i className="bi bi-send-fill"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
+                        {pinnedPeerId && remoteStreams[pinnedPeerId] ? (
+                            <VideoStream stream={remoteStreams[pinnedPeerId]} />
                         ) : (
-                            // People tab
-                            <div style={{ padding: '12px', overflowY: 'auto' }}>
-                                <p style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: '12px' }}>Trong phòng ({totalParticipants} người)</p>
+                            <VideoStream stream={localStream} muted={true} />
+                        )}
 
-                                {/* Local user */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', padding: '8px', background: 'rgba(79,70,229,0.1)', borderRadius: '10px', border: '1px solid rgba(79,70,229,0.2)' }}>
-                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
-                                        {userInfo.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.875rem' }}>{userInfo.name} (Bạn)</div>
-                                        <div style={{ color: '#a0aec0', fontSize: '0.75rem' }}>
-                                            {isMicOn ? <span style={{ color: '#4ade80' }}>🎤 Mic bật</span> : <span style={{ color: '#f87171' }}>🔇 Mic tắt</span>}
-                                            {' · '}
-                                            {isCameraOn ? <span style={{ color: '#4ade80' }}>📹 Cam bật</span> : <span style={{ color: '#f87171' }}>📷 Cam tắt</span>}
-                                        </div>
-                                    </div>
+                        <div className="position-absolute bottom-0 start-50 translate-middle-x mb-4 p-2 bg-white rounded-pill shadow-lg d-flex gap-3 border">
+                            <Button variant={isAudioOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isAudioOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleAudio}>
+                                <i className={`bi bi-mic${isAudioOn ? '' : '-mute-fill'} fs-5`}></i>
+                            </Button>
+                            <Button variant={isVideoOn ? "light" : "danger"} className={`rounded-circle shadow-sm ${isVideoOn ? 'text-dark' : ''}`} style={{ width: '45px', height: '45px' }} onClick={toggleVideo}>
+                                <i className={`bi bi-camera-video${isVideoOn ? '' : '-off-fill'} fs-5`}></i>
+                            </Button>
+                            {currentUser.role === 'lecturer' && (
+                                <Button variant={isScreenSharing ? "primary" : "light"} className={`rounded-circle shadow-sm ${isScreenSharing ? '' : 'text-primary'}`} style={{ width: '45px', height: '45px' }} onClick={toggleScreenShare}>
+                                    <i className="bi bi-display fs-5"></i>
+                                </Button>
+                            )}
+                            <Button variant="danger" className="rounded-circle shadow-sm" style={{ width: '45px', height: '45px' }} onClick={() => navigate('/dashboard')}>
+                                <i className="bi bi-telephone-x-fill fs-5"></i>
+                            </Button>
+                        </div>
+                        <div className="position-absolute top-0 start-0 m-3 p-2 bg-white bg-opacity-75 rounded-pill small d-flex align-items-center shadow-sm backdrop-blur">
+                            <span className="fw-800 me-2 text-dark">
+                                {pinnedPeerId && peers.find(p => p.peerID === pinnedPeerId)
+                                    ? peers.find(p => p.peerID === pinnedPeerId).username
+                                    : (currentUser.name || currentUser.username || 'Khách')}
+                            </span>
+                            <Badge bg={pinnedPeerId ? (peers.find(p => p.peerID === pinnedPeerId)?.role === 'lecturer' ? "danger" : "info") : (currentUser.role === 'lecturer' ? "danger" : "secondary")} className="rounded-pill">
+                                {pinnedPeerId
+                                    ? (sharingUserId === pinnedPeerId ? "Đang chia sẻ màn hình" : "Đã ghim")
+                                    : (currentUser.role === 'lecturer' ? 'Giảng viên' : 'Học viên') + " (Bạn)"}
+                            </Badge>
+                            {pinnedPeerId && (
+                                <Button variant="link" size="sm" className="text-secondary ms-2 p-0 fw-bold" onClick={() => setPinnedPeerId(null)}>
+                                    <i className="bi bi-pin-angle-fill"></i> Bỏ ghim
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="d-flex gap-2 overflow-auto custom-scrollbar pb-2" style={{ height: '160px' }}>
+                        {peers.filter(p => p.peerID !== pinnedPeerId).map((peerObj) => (
+                            <div key={peerObj.peerID} className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
+                                <VideoStream stream={remoteStreams[peerObj.peerID]} />
+                                <div className="position-absolute top-0 end-0 m-2">
+                                    <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="bg-white bg-opacity-75 p-1 rounded-circle shadow-sm" style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        onClick={() => setPinnedPeerId(pinnedPeerId === peerObj.peerID ? null : peerObj.peerID)}
+                                    >
+                                        <i className={`bi bi-pin-angle${pinnedPeerId === peerObj.peerID ? '-fill text-primary' : ' text-secondary'}`}></i>
+                                    </Button>
                                 </div>
+                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur d-flex justify-content-between align-items-center">
+                                    <span>{peerObj.username} {peerObj.role === 'lecturer' && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.6rem' }}>GV</Badge>}</span>
+                                    {sharingUserId === peerObj.peerID && <Badge bg="primary" style={{ fontSize: '0.6rem' }}><i className="bi bi-display me-1"></i>LIVE</Badge>}
+                                </div>
+                            </div>
+                        ))}
+                        {/* Always show own video as thumbnail if someone else is pinned */}
+                        {pinnedPeerId && (
+                            <div className="bg-dark rounded-4 overflow-hidden position-relative shadow-sm" style={{ minWidth: '220px', height: '100%' }}>
+                                <VideoStream stream={localStream} muted={true} />
+                                <div className="position-absolute bottom-0 start-0 p-2 small bg-dark bg-opacity-50 w-100 text-white fw-600 backdrop-blur">
+                                    Bạn
+                                </div>
+                            </div>
+                        )}
 
-                                {/* Remote peers */}
-                                {peerArray.map(([socketId, { userInfo: pInfo, isMicOn: pMic, isCameraOn: pCam }]) => (
-                                    <div key={socketId} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', padding: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>
-                                            {(pInfo?.name || '?').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.875rem' }}>
-                                                {pInfo?.name || 'Người dùng'}
-                                                {pInfo?.role === 'teacher' && <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.65rem' }}>GV</Badge>}
-                                            </div>
-                                            <div style={{ color: '#a0aec0', fontSize: '0.75rem' }}>
-                                                {pMic ? <span style={{ color: '#4ade80' }}>🎤 On</span> : <span style={{ color: '#f87171' }}>🔇 Off</span>}
-                                                {' · '}
-                                                {pCam ? <span style={{ color: '#4ade80' }}>📹 On</span> : <span style={{ color: '#f87171' }}>📷 Off</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                        {peers.length === 0 && (
+                            <div className="d-flex flex-column align-items-center justify-content-center w-100 text-muted h-100 border border-secondary border-dashed border-opacity-25 rounded-4 bg-white">
+                                <i className="bi bi-people fs-2 mb-2 opacity-50"></i>
+                                <span className="fw-600 small">Chưa có thành viên nào khác tham gia</span>
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
 
-            {/* ── Control Bar ──────────────────────────────────────────── */}
-            <div style={{
-                height: '72px',
-                background: '#16181d',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                flexShrink: 0,
-            }}>
-                {/* Mic */}
-                <button
-                    onClick={toggleMic}
-                    title={isMicOn ? 'Tắt Mic' : 'Bật Mic'}
-                    style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '50%',
-                        border: 'none',
-                        background: isMicOn ? 'rgba(255,255,255,0.1)' : '#dc2626',
-                        color: '#fff',
-                        fontSize: '1.1rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}
-                >
-                    <i className={`bi ${isMicOn ? 'bi-mic-fill' : 'bi-mic-mute-fill'}`}></i>
-                </button>
+                <div className="d-flex flex-column bg-white shadow-sm z-2" style={{ width: '25%', minWidth: '320px', borderLeft: '1px solid rgba(0,0,0,0.05)' }}>
+                    <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-0 border-bottom bg-light px-2 pt-2" variant="pills" fill>
+                        <Tab eventKey="chat" title={<span className="fw-bold"><i className="bi bi-chat-dots-fill me-1"></i> Chat</span>}>
+                            <div className="d-flex flex-column h-100" style={{ height: 'calc(100vh - 115px)' }}>
+                                <div className="p-3 border-bottom d-flex justify-content-center gap-2 bg-light">
+                                    <Button size="sm" variant={chatMode === 'class' ? 'primary' : 'outline-primary'} className="rounded-pill px-3 fw-bold shadow-sm" onClick={() => setChatMode('class')}>
+                                        Hỏi Lớp
+                                    </Button>
+                                    <Button size="sm" variant={chatMode === 'ai' ? 'success' : 'outline-success'} className="rounded-pill px-3 fw-bold shadow-sm" onClick={() => setChatMode('ai')}>
+                                        ✨ Hỏi AI Tutor
+                                    </Button>
+                                </div>
+                                <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar bg-white">
+                                    {chatMode === 'class' ? (
+                                        messages.length === 0 ? <div className="text-center mt-5"><i className="bi bi-chat-square-dots fs-1 text-muted opacity-25"></i><p className="text-muted small mt-2 fw-500">Chưa có đoạn chat nào.</p></div> :
+                                            messages.map((msg, idx) => {
+                                                const isMe = msg.senderId === socketRef.current?.id;
+                                                return (
+                                                    <div key={idx} className={`d-flex flex-column mb-3 ${isMe ? 'align-items-end' : 'align-items-start'}`}>
+                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-secondary'}`} style={{ fontSize: '0.75rem' }}>
+                                                            {msg.sender} {isMe ? '(Bạn)' : ''}
+                                                        </div>
+                                                        <div className={`p-2 px-3 rounded-4 shadow-sm ${isMe ? 'bg-primary text-white border-0' : 'bg-light text-dark border-0'}`}
+                                                            style={{ maxWidth: '85%', fontSize: '0.9rem', borderBottomRightRadius: isMe ? '4px' : '16px', borderBottomLeftRadius: !isMe ? '4px' : '16px' }}>
+                                                            {msg.text}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                    ) : (
+                                        <>
+                                            <div className="text-center mb-4 mt-2">
+                                                <Badge bg="success" className="bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill fw-600">
+                                                    <i className="bi bi-robot me-1"></i> Trợ lý giảng dạy AI (RAG)
+                                                </Badge>
+                                            </div>
 
-                {/* Camera */}
-                <button
-                    onClick={toggleCamera}
-                    title={isCameraOn ? 'Tắt Camera' : 'Bật Camera'}
-                    style={{
-                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
-                        background: isCameraOn ? 'rgba(255,255,255,0.1)' : '#dc2626',
-                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >
-                    <i className={`bi ${isCameraOn ? 'bi-camera-video-fill' : 'bi-camera-video-off-fill'}`}></i>
-                </button>
-
-                {/* Screen Share */}
-                <button
-                    onClick={toggleScreenShare}
-                    title={isScreenSharing ? 'Dừng chia sẻ' : 'Chia sẻ màn hình'}
-                    style={{
-                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
-                        background: isScreenSharing ? '#4f46e5' : 'rgba(255,255,255,0.1)',
-                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >
-                    <i className="bi bi-display"></i>
-                </button>
-
-                {/* Chat */}
-                <button
-                    onClick={() => setActiveTab(activeTab === 'chat' ? 'people' : 'chat')}
-                    title="Chat"
-                    style={{
-                        width: '48px', height: '48px', borderRadius: '50%', border: 'none',
-                        background: 'rgba(255,255,255,0.1)',
-                        color: '#fff', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >
-                    <i className="bi bi-chat-dots-fill"></i>
-                </button>
-
-                {/* Divider */}
-                <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }}></div>
-
-                {/* End Call */}
-                <button
-                    onClick={handleEndCall}
-                    title="Rời phòng"
-                    style={{
-                        padding: '12px 24px',
-                        borderRadius: '24px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #dc2626, #c41e1e)',
-                        color: '#fff',
-                        fontSize: '0.9rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 4px 20px rgba(220,38,38,0.4)',
-                    }}
-                >
-                    <i className="bi bi-telephone-x-fill"></i> Rời phòng
-                </button>
+                                            {currentUser.role === 'lecturer' && (
+                                                <div className="mb-4 p-3 border border-success border-opacity-50 border-dashed rounded-4 bg-success bg-opacity-10 shadow-sm">
+                                                    <h6 className="small fw-800 text-dark mb-2"><i className="bi bi-file-earmark-pdf-fill text-danger"></i> Tải tài liệu Bài giảng cho AI:</h6>
+                                                    <Form.Control
+                                                        type="file"
+                                                        accept=".pdf"
+                                                        size="sm"
+                                                        onChange={handleFileUpload}
+                                                        className="bg-white text-dark border-0 shadow-sm mb-2 rounded-pill"
+                                                        disabled={isUploading}
+                                                    />
+                                                    {uploadStatus && <div className="small text-success fw-bold">{uploadStatus}</div>}
+                                                    {isUploading && (
+                                                        <div className="text-secondary small fw-500">
+                                                            <span className="spinner-border spinner-border-sm me-2 text-primary" role="status"></span>
+                                                            Đang xử lý PDF...
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {aiMessages.map((msg, idx) => {
+                                                const isMe = !msg.isAi;
+                                                return (
+                                                    <div key={idx} className={`d-flex flex-column mb-3 ${isMe ? 'align-items-end' : 'align-items-start'}`}>
+                                                        <div className={`small fw-bold mb-1 ${isMe ? 'text-primary' : 'text-success'}`} style={{ fontSize: '0.75rem' }}>
+                                                            {msg.sender}
+                                                        </div>
+                                                        <div className={`p-2 px-3 rounded-4 shadow-sm ${isMe ? 'bg-primary text-white border-0' : (msg.error ? 'bg-danger bg-opacity-10 text-danger border-0' : 'bg-success bg-opacity-10 text-dark border-0')}`}
+                                                            style={{ maxWidth: '85%', fontSize: '0.9rem', borderBottomRightRadius: isMe ? '4px' : '16px', borderBottomLeftRadius: !isMe ? '4px' : '16px' }}>
+                                                            {msg.text}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {isAiTyping && (
+                                                <div className="d-flex flex-column mb-3 align-items-start">
+                                                    <div className="small text-success fw-bold mb-1" style={{ fontSize: '0.75rem' }}>Gia sư AI</div>
+                                                    <div className="p-2 px-3 rounded-4 bg-light text-secondary border-0 d-flex align-items-center shadow-sm">
+                                                        <span className="spinner-border spinner-border-sm me-2 text-success" role="status"></span>
+                                                        <span className="small fw-500">Đang suy nghĩ...</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                                <div className="p-3 border-top bg-light">
+                                    <InputGroup className="shadow-sm rounded-pill overflow-hidden bg-white">
+                                        <Form.Control
+                                            placeholder={"Nhập tin nhắn..."}
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                            className="bg-white text-dark border-0 border-end-0 py-2 ps-4"
+                                            style={{ boxShadow: 'none' }}
+                                        />
+                                        <Button variant="primary" onClick={handleSendMessage} className="px-4 border-0">
+                                            <i className="bi bi-send-fill"></i>
+                                        </Button>
+                                    </InputGroup>
+                                </div>
+                            </div>
+                        </Tab>
+                        <Tab eventKey="people" title={<span className="fw-bold"><i className="bi bi-people-fill me-1"></i> ({peers.length + 1})</span>}>
+                            <div className="p-3 bg-white h-100">
+                                <h6 className="fw-800 text-dark mb-4 border-bottom pb-2">Thành viên trong lớp ({peers.length + 1})</h6>
+                                <div className="d-flex align-items-center mb-3 bg-light p-2 rounded-3">
+                                    <div className="bg-primary rounded-circle me-3 text-center text-white shadow-sm" style={{ width: 36, height: 36, lineHeight: '36px' }}>
+                                        <i className="bi bi-person-fill fs-5"></i>
+                                    </div>
+                                    <span className="fw-bold text-dark">Bạn <Badge bg="secondary" className="ms-1 px-2 py-1 rounded-pill small" style={{ fontSize: '0.65rem' }}>{currentUser.role}</Badge></span>
+                                </div>
+                                {peers.map((peer) => (
+                                    <div key={peer.peerID} className="d-flex align-items-center mb-3 text-dark p-2 hover-bg-light rounded-3 transition-fast">
+                                        <div className="bg-secondary bg-opacity-25 rounded-circle me-3 text-center text-dark fw-bold shadow-sm" style={{ width: 36, height: 36, lineHeight: '36px' }}>
+                                            {peer.username?.charAt(0).toUpperCase() || 'U'}
+                                        </div>
+                                        <span className="fw-500">{peer.username}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Tab>
+                    </Tabs>
+                </div>
             </div>
         </div>
     );

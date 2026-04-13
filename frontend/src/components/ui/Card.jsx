@@ -5,7 +5,7 @@ const Card = ({ children, className = '', hover = true, ...props }) => {
     return (
         <motion.div
             whileHover={hover ? { y: -5 } : {}}
-            className={`card bg-dark text-white border-secondary shadow-sm ${className}`}
+            className={`card text-white border-secondary shadow-sm ${className}`}
             {...props}
         >
             <div className="card-body">

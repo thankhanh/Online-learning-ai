@@ -1,99 +1,168 @@
 import React, { useState } from 'react';
 import { Card, ListGroup, Badge, Button, Tab, Tabs, Row, Col } from 'react-bootstrap';
+import { motion } from 'framer-motion';
+import { Bell, CheckCircle, Info, AlertTriangle, User, Settings, Trash2 } from 'lucide-react';
 
-export default function Notification({ user }) {
+export default function Notification({ user, notifications = [], markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications }) {
     const [key, setKey] = useState('all');
-
-    // Mock Notification Data
-    const [notifications, setNotifications] = useState([
-        { id: 1, type: 'system', title: 'Bảo trì hệ thống', content: 'Hệ thống sẽ bảo trì vào lúc 22:00 ngày 25/10/2023.', time: '10:00 24/10/2023', read: false },
-        { id: 2, type: 'course', title: 'Bài tập mới môn AI', content: 'Giảng viên đã đăng bài tập mới cho môn Trí tuệ nhân tạo.', time: '09:30 25/10/2023', read: true },
-        { id: 3, type: 'exam', title: 'Nhắc nhở lịch thi', content: 'Kỳ thi giữa kỳ môn AI sẽ bắt đầu vào lúc 08:00 ngày 26/10/2023.', time: '08:00 25/10/2023', read: false },
-        { id: 4, type: 'personal', title: 'Cập nhật hồ sơ', content: 'Vui lòng cập nhật thông tin cá nhân của bạn.', time: '14:00 20/10/2023', read: true },
-    ]);
-
-    const markAsRead = (id) => {
-        setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
-    };
-
-    const markAllAsRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
-    };
 
     const filterNotifications = (filterKey) => {
         if (filterKey === 'all') return notifications;
         if (filterKey === 'unread') return notifications.filter(n => !n.read);
-        return notifications.filter(n => n.type === filterKey); // filter by type (system, course, exam)
+        if (filterKey === 'system') return notifications.filter(n => n.type === 'system');
+        if (filterKey === 'course') return notifications.filter(n => n.type === 'course');
+        return notifications;
     };
 
     const getIcon = (type) => {
         switch (type) {
-            case 'system': return <i className="bi bi-gear-fill text-warning"></i>;
-            case 'course': return <i className="bi bi-book-half text-info"></i>;
-            case 'exam': return <i className="bi bi-pencil-square text-danger"></i>;
-            case 'personal': return <i className="bi bi-person-fill text-primary"></i>;
-            default: return <i className="bi bi-bell-fill"></i>;
+            case 'system': return <Settings size={20} />;
+            case 'course': return <Info size={20} />;
+            case 'exam': return <AlertTriangle size={20} />;
+            case 'personal': return <User size={20} />;
+            default: return <Bell size={20} />;
+        }
+    };
+
+    const getIconColorClass = (type) => {
+        switch (type) {
+            case 'system': return 'bg-warning text-warning';
+            case 'course': return 'bg-info text-info';
+            case 'exam': return 'bg-danger text-danger';
+            case 'personal': return 'bg-primary text-primary';
+            default: return 'bg-secondary text-secondary';
         }
     };
 
     return (
-        <div className="container-fluid p-4">
-            <h2 className="mb-4 text-white">🔔 Trung tâm Thông báo</h2>
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="container-fluid p-4"
+        >
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <div className="d-flex align-items-center">
+                    <div className="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary shadow-sm border border-primary border-opacity-10">
+                        <Bell size={28} />
+                    </div>
+                    <div>
+                        <h2 className="fw-800 mb-0 text-dark" style={{ letterSpacing: '-0.02em' }}>Trung tâm Thông báo</h2>
+                        <p className="text-muted fw-500 mb-0">Theo dõi các tin tức và cập nhật mới nhất từ hệ thống</p>
+                    </div>
+                </div>
+                <div className="d-flex gap-2">
+                    <Button 
+                        variant="outline-primary" 
+                        onClick={markAllAsRead} 
+                        className="rounded-pill px-4 fw-600 border-2 shadow-sm"
+                    >
+                        <CheckCircle size={18} className="me-2 mb-1" /> Đã đọc hết
+                    </Button>
+                    <Button 
+                        variant="outline-danger" 
+                        onClick={deleteAllNotifications} 
+                        className="rounded-pill px-4 fw-600 border-2 shadow-sm"
+                    >
+                        <Trash2 size={18} className="me-2 mb-1" /> Xóa tất cả
+                    </Button>
+                </div>
+            </div>
 
             <Row>
-                <Col md={8} className="mx-auto">
-                    <Card className="bg-dark text-white border-secondary shadow-sm">
-                        <Card.Header className="d-flex justify-content-between align-items-center border-secondary">
-                            <h5 className="m-0">Thông báo của bạn</h5>
-                            <Button variant="outline-success" size="sm" onClick={markAllAsRead}>
-                                <i className="bi bi-check-all"></i> Đánh dấu đã đọc tất cả
-                            </Button>
-                        </Card.Header>
-                        <Card.Body>
+                <Col lg={10} className="mx-auto">
+                    <Card className="bg-white border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                        <Card.Header className="bg-white border-bottom border-light p-0">
                             <Tabs
                                 id="notification-tabs"
                                 activeKey={key}
                                 onSelect={(k) => setKey(k)}
-                                className="mb-3"
+                                className="custom-tabs-premium border-0 px-4"
                             >
-                                <Tab eventKey="all" title="Tất cả" />
-                                <Tab eventKey="unread" title="Chưa đọc" />
-                                <Tab eventKey="system" title="Hệ thống" />
-                                <Tab eventKey="course" title="Học tập" />
+                                <Tab eventKey="all" title={<span><Bell size={16} className="me-2" /> Tất cả</span>} />
+                                <Tab eventKey="unread" title={<span><i className="bi bi-circle-fill text-danger me-2" style={{ fontSize: '0.5rem' }}></i> Chưa đọc</span>} />
+                                <Tab eventKey="system" title={<span><Settings size={16} className="me-2" /> Hệ thống</span>} />
+                                <Tab eventKey="course" title={<span><Info size={16} className="me-2" /> Học tập</span>} />
                             </Tabs>
+                        </Card.Header>
 
-                            <ListGroup variant="flush">
-                                {filterNotifications(key).length > 0 ? (
-                                    filterNotifications(key).map(notif => (
-                                        <ListGroup.Item
-                                            key={notif.id}
-                                            className={`bg-dark text-white border-secondary d-flex justify-content-between align-items-start ${!notif.read ? 'fw-bold' : ''}`}
-                                            action
-                                            onClick={() => markAsRead(notif.id)}
-                                        >
-                                            <div className="d-flex w-100 justify-content-between">
-                                                <div className="mb-1">
+                        <ListGroup variant="flush">
+                            {notifications && filterNotifications(key).length > 0 ? (
+                                filterNotifications(key).map(notif => (
+                                    <ListGroup.Item
+                                        key={notif.id || notif._id}
+                                        className={`bg-white text-dark border-bottom border-light p-4 transition-fast hover-bg-light ${!notif.read ? 'bg-primary bg-opacity-5' : ''}`}
+                                        action
+                                        onClick={() => markAsRead(notif.id || notif._id)}
+                                        style={{ 
+                                            borderLeft: !notif.read ? '4px solid var(--primary-color)' : '4px solid transparent',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <div className="d-flex w-100 justify-content-between align-items-center">
+                                            <div className="d-flex align-items-center">
+                                                <div className={`me-3 p-3 rounded-circle d-flex align-items-center justify-content-center bg-opacity-10 shadow-sm ${getIconColorClass(notif.type)}`}>
+                                                    {getIcon(notif.type)}
+                                                </div>
+                                                <div>
                                                     <div className="d-flex align-items-center mb-1">
-                                                        <span className="me-2 fs-5">{getIcon(notif.type)}</span>
-                                                        <h6 className="mb-0">{notif.title} {!notif.read && <Badge bg="danger" pill className="ms-2">Mới</Badge>}</h6>
+                                                        <h6 className={`mb-0 ${!notif.read ? 'fw-800 text-dark' : 'fw-600 text-secondary'}`} style={{ fontSize: '1.05rem' }}>
+                                                            {notif.title}
+                                                        </h6>
+                                                        {!notif.read && (
+                                                            <Badge bg="danger" className="ms-2 px-2 py-1 rounded-pill fw-bold" style={{ fontSize: '0.65rem' }}>
+                                                                MỚI
+                                                            </Badge>
+                                                        )}
                                                     </div>
-                                                    <p className="mb-1 text-muted small">{notif.content}</p>
-                                                    <small className="text-secondary">{notif.time}</small>
+                                                    <p className={`mb-1 ${!notif.read ? 'text-dark' : 'text-muted'} fw-500`} style={{ fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                                        {notif.content}
+                                                    </p>
+                                                    <div className="d-flex align-items-center mt-2 opacity-75">
+                                                        <i className="bi bi-clock me-1 small"></i>
+                                                        <small className="fw-600" style={{ fontSize: '0.75rem' }}>{notif.time || new Date(notif.createdAt).toLocaleString('vi-VN')}</small>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </ListGroup.Item>
-                                    ))
-                                ) : (
-                                    <div className="text-center p-4 text-muted">
-                                        <i className="bi bi-bell-slash fs-1 d-block mb-3"></i>
-                                        Không có thông báo nào.
+                                            <div className="d-flex align-items-center">
+                                                {notif.read ? (
+                                                    <div className="text-success opacity-50 px-3">
+                                                        <CheckCircle size={22} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-primary rounded-circle mx-3 border border-white shadow-sm" style={{ width: '12px', height: '12px' }}></div>
+                                                )}
+                                                <Button 
+                                                    variant="light" 
+                                                    size="sm" 
+                                                    className="text-danger rounded-circle shadow-sm border p-0 d-flex align-items-center justify-content-center transition-fast" 
+                                                    style={{ width: '38px', height: '38px' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteNotification(notif.id || notif._id);
+                                                    }}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </ListGroup.Item>
+                                ))
+                            ) : (
+                                <div className="text-center py-5">
+                                    <div className="bg-light rounded-circle d-inline-flex p-5 mb-4 shadow-inner border">
+                                        <Bell size={64} className="text-secondary opacity-25" />
                                     </div>
-                                )}
-                            </ListGroup>
-                        </Card.Body>
+                                    <h4 className="fw-800 text-dark">Hết sạch thông báo!</h4>
+                                    <p className="text-muted fw-500">Tuyệt vời, bạn đã cập nhật hết mọi tin tức từ hệ thống rồi đó.</p>
+                                    <Button variant="outline-primary" className="mt-2 rounded-pill px-4 fw-600 border-2" onClick={() => window.history.back()}>
+                                        Quay lại trang chính
+                                    </Button>
+                                </div>
+                            )}
+                        </ListGroup>
                     </Card>
                 </Col>
             </Row>
-        </div>
+        </motion.div>
     );
-}
+}

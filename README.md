@@ -17,11 +17,11 @@ This project focuses on building an **All-in-one online learning platform** that
 * **Backend**: Node.js, ExpressJS
 * **Database**: MongoDB
 * **AI Engine**:
-
   * Runtime: Ollama (Local)
-  * Model: Qwen-2.5-1.5B
+  * Model: Qwen-2.5-1.5B (or similar)
   * Orchestration: LangChain.js
 * **Architecture**: Monolithic Modular
+* **Containerization**: Docker & Docker Compose
 
 ### 4. System Modules
 
@@ -49,7 +49,7 @@ This project focuses on building an **All-in-one online learning platform** that
 
 1. **Text Splitting**: Recursive Character Text Splitting
 2. **Embedding**: nomic-embed-text
-3. **Vector Search**: HNSW index
+3. **Vector Search**: HNSW index (MongoDB Atlas / in-memory lookup)
 4. **Similarity Matching**: Cosine Similarity
 5. **Answer Generation**: Transformer-based Qwen model
 
@@ -65,6 +65,60 @@ This project focuses on building an **All-in-one online learning platform** that
 * Frontend Engineer
 * AI Engineer
 * Leader / Database / Admin
+
+---
+
+### 8. Installation & Setup
+
+#### Prerequisites
+* **Node.js**: v18 or later
+* **MongoDB**: Local or Atlas instance
+* **Ollama**: Installed locally or via Docker
+* **Docker & Docker Compose** (Optional, for containerized run)
+
+#### Environment Variables
+Create a `.env` file in both `backend` and `frontend` folders:
+
+**Backend (`backend/.env`)**
+```env
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/online-learning-ai
+JWT_SECRET=your_jwt_strong_secret
+OLLAMA_URL=http://localhost:11434
+```
+
+**Frontend (`frontend/.env`)**
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+#### Running Locally (Manual)
+1. **Start Ollama** and download the model:
+   ```bash
+   ollama run qwen:0.5b
+   ollama pull nomic-embed-text
+   ```
+
+2. **Start the Backend**:
+   ```bash
+   cd backend
+   npm install
+   npm run dev
+   ```
+
+3. **Start the Frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+#### Running with Docker (Recommended)
+You can spin up the entire stack using Docker Compose:
+```bash
+docker-compose up --build
+```
+This will start the frontend, backend, MongoDB, and Ollama in isolated containers.
 
 ---
 
@@ -88,9 +142,10 @@ Dự án này tập trung xây dựng một **Nền tảng học trực tuyến 
 *   **Database**: MongoDB
 *   **AI Engine**:
     *   Runtime: Ollama (Local)
-    *   Model: Qwen-2.5-1.5B
+    *   Model: Qwen-2.5-1.5B (hoặc tương tự)
     *   Orchestration: LangChain.js
 *   **Kiến trúc**: Monolithic Modular
+*   **Ảo hoá**: Docker & Docker Compose
 
 ### 4. Các phân hệ hệ thống
 
@@ -134,3 +189,57 @@ Dự án này tập trung xây dựng một **Nền tảng học trực tuyến 
 *   Frontend Engineer
 *   AI Engineer
 *   Leader / Database / Admin
+
+---
+
+### 8. Cài đặt và Khởi chạy
+
+#### Yêu cầu
+* **Node.js**: v18 hoặc mới hơn
+* **MongoDB**: Cài đặt Local hoặc sử dụng Atlas
+* **Ollama**: Cài đặt Local hoặc sử dụng qua Docker
+* **Docker & Docker Compose** (Tuỳ chọn cho chạy ảo hoá)
+
+#### Cấu hình biến môi trường
+Tạo file `.env` ở cả thư mục `backend` và `frontend`:
+
+**Backend (`backend/.env`)**
+```env
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/online-learning-ai
+JWT_SECRET=your_jwt_strong_secret
+OLLAMA_URL=http://localhost:11434
+```
+
+**Frontend (`frontend/.env`)**
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+#### Chạy dự án (Local/Thủ công)
+1. **Khởi động Ollama** và tải model:
+   ```bash
+   ollama run qwen:0.5b
+   ollama pull nomic-embed-text
+   ```
+
+2. **Khởi động Backend**:
+   ```bash
+   cd backend
+   npm install
+   npm run dev
+   ```
+
+3. **Khởi động Frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+#### Chạy dự án (Docker)
+Sử dụng cấu hình Docker Compose để khởi chạy toàn bộ dịch vụ:
+```bash
+docker-compose up --build
+```
+Lệnh này sẽ tự động tải các images cần thiết và cấu hình network kết nối cho Frontend, Backend, MongoDB và Ollama.
