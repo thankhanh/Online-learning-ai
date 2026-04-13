@@ -371,12 +371,12 @@ docker-compose up --build
 
 ## 👥 Vai trò nhóm
 
-| Tên vai trò | Phụ trách |
-|-------------|-----------|
-| **Leader / Database / Admin** | Quản lý nhóm, thiết kế DB, triển khai |
-| **Backend Engineer** | REST API, Socket.io, Auth, Business Logic |
-| **Frontend Engineer** | React UI, WebRTC, UX/UX Responsive |
-| **AI Engineer** | RAG Pipeline, GROQ Integration, Quiz Gen |
+| Họ tên | MSSV | Vai trò | Phụ trách |
+|--------|------|---------|-----------|
+| **Hà Thanh Khánh** | 3122410178 | Leader / DB / Admin | Quản lý nhóm, thiết kế Database, triển khai hệ thống |
+| **Hà Văn Hưng** | 3122410159 | AI Engineer | RAG Pipeline, GROQ Integration, AI Quiz Generation |
+| **Nguyễn Thị Mai Trinh** | 3122410428 | Backend Engineer | REST API, Socket.io, Auth, Business Logic |
+| **Lữ Thị Cẩm Tri** | 3122410419 | Frontend Engineer | React UI, WebRTC, UX/UI Responsive |
 
 ---
 
@@ -481,9 +481,9 @@ docker-compose up --build
 
 ### 7. Team Roles
 
-| Role | Responsibility |
-|------|---------------|
-| Leader / DB / Admin | Project management, database design, deployment |
-| Backend Engineer | REST API, Socket.io, auth, business logic |
-| Frontend Engineer | React UI, WebRTC integration, UX |
-| AI Engineer | RAG pipeline, GROQ integration, quiz generation |
+| Name | Student ID | Role | Responsibility |
+|------|-----------|------|---------------|
+| **Hà Thanh Khánh** | 3122410178 | Leader / DB / Admin | Project management, database design, deployment |
+| **Hà Văn Hưng** | 3122410159 | AI Engineer | RAG pipeline, GROQ integration, quiz generation |
+| **Nguyễn Thị Mai Trinh** | 3122410428 | Backend Engineer | REST API, Socket.io, auth, business logic |
+| **Lữ Thị Cẩm Tri** | 3122410419 | Frontend Engineer | React UI, WebRTC integration, UX |
